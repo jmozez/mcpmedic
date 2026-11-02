@@ -1,0 +1,17 @@
+{
+  "tools": [
+    {
+      "name": "get_forecast",
+      "description": "Get the 7-day weather forecast for a place. Use this when the user asks about upcoming weather. Returns daily highs, lows and rain chance.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "place": { "type": "string", "description": "Town or city name, for example Lae." },
+          "units": { "type": "string", "enum": ["metric", "imperial"], "description": "Units for temperatures. Defaults to metric." }
+        },
+        "required": ["place"]
+      },
+      "annotations": { "readOnlyHint": true, "openWorldHint": true }
+    }
+  ]
+}

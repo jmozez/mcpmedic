@@ -1,0 +1,6 @@
+[
+  { "name": "do stuff!", "description": "Handles stuff", "inputSchema": { "type": "string" } },
+  { "name": "Search", "inputSchema": { "type": "object", "properties": { "q": {} , "mode": { "type": "string", "enum": [] } }, "required": ["q", "limit"] }, "annotations": { "readOnlyHint": true, "destructiveHint": true } },
+  { "name": "search", "description": "Search the knowledge base for articles that match a query string.", "inputSchema": { "type": "object", "properties": { "q": { "type": "string", "description": "Words to search for." } } }, "annotations": { "readOnlyHint": true } },
+  { "name": "search", "description": "Duplicate of search, kept here to trigger the duplicate check.", "inputSchema": { "type": "object" }, "annotations": { "readOnlyHint": true } }
+]
