@@ -19,7 +19,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "dev": "tsx src/cli.ts"
+    "dev": "tsx src/cli.ts",
+    "prepare": "npm run build"
   },
   "keywords": [
     "mcp",
@@ -44,10 +45,10 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "typescript": "^7.0.2",
     "@types/node": "^26.6.6",
-    "vitest": "^5.1.0",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
