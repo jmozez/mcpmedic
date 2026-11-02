@@ -1,0 +1,110 @@
+{
+  "serverName": "fixture",
+  "instructions": "Use search first, then fetch. This sentence pads the instructions out past the limit. Use search first, then fetch. This sentence pads the instructions out past the limit. Use search first, then fetch. This sentence pads the instructions out past the limit. Use search first, then fetch. This sentence pads the instructions out past the limit. Use search first, then fetch. This sentence pads the instructions out past the limit. Use search first, then fetch. This sentence pads the instructions out past the limit. Use search first, then fetch. This sentence pads the instructions out past the limit. Use search first, then fetch. This sentence pads the instructions out past the limit. ",
+  "tools": [
+    {
+      "name": "files.read",
+      "description": "Read one file from the project and return its text content.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path."
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "pick",
+      "description": "Pick either a user or a team record and return its details.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "oneOf": [
+          {
+            "properties": {
+              "user": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "properties": {
+              "team": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "weird_params",
+      "description": "Accept a parameter whose name has a space in it, which some hosts reject.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "first name": {
+            "type": "string",
+            "description": "A name."
+          }
+        }
+      }
+    },
+    {
+      "name": "bad_schema",
+      "description": "Declare a schema whose type keyword is not a valid JSON Schema type.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "n": {
+            "type": "integer-ish",
+            "description": "A number."
+          }
+        }
+      }
+    },
+    {
+      "name": "write_note",
+      "description": "Write a short note to the shared notes file and return its id.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Note text."
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "description": "A tool with a very long name, to test the prefixed name limit in hosts.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
