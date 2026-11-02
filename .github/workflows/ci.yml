@@ -29,3 +29,35 @@ jobs:
       - run: npm test
       - name: Check the CLI runs
         run: node dist/cli.js check --file test/fixtures/good.json
+
+  action:
+    name: action (fixture server)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Run the action on the probe fixture
+        id: medic
+        uses: ./
+        with:
+          command: node test/fixtures/probe-server.mjs
+          probe: "true"
+          fail-on: never
+          badge: mcpmedic-badge.json
+      - name: Check the outputs
+        run: |
+          test -s mcpmedic-report.html
+          test -s mcpmedic-badge.json
+          echo "Score: ${{ steps.medic.outputs.score }}"
+          test -n "${{ steps.medic.outputs.score }}"
+      - name: The action fails on errors when asked to
+        id: strict
+        continue-on-error: true
+        uses: ./
+        with:
+          file: test/fixtures/bad.json
+      - name: Check it failed
+        run: test "${{ steps.strict.outcome }}" = "failure"
