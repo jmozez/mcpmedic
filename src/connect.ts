@@ -61,11 +61,12 @@ export function withTimeout<T>(p: Promise<T>, timeoutMs: number, what = "the ser
 
 /** Connects to a live server and keeps the connection open, for probes and evals. */
 export async function openSession(target: Exclude<Target, { kind: "file" }>, timeoutMs = 30000): Promise<Session> {
-  const ready = async (client: Client): Promise<Session> => ({
-    client,
-    snapshot: await withTimeout(snapshotFrom(client), timeoutMs),
-    close: () => client.close().catch(() => undefined),
-  });
+  const started = performance.now();
+  const ready = async (client: Client): Promise<Session> => {
+    const snap = await withTimeout(snapshotFrom(client), timeoutMs);
+    snap.startupMs = Math.round(performance.now() - started);
+    return { client, snapshot: snap, close: () => client.close().catch(() => undefined) };
+  };
 
   if (target.kind === "stdio") {
     const client = new Client(CLIENT_INFO);
