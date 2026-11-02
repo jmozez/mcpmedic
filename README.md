@@ -129,4 +129,4 @@ Issues and pull requests are welcome. Run `npm test` before you open a pull requ
 
 ## Licence
 
-[MIT](LICENSE) © 2026 Dr. Jimmy Moses
+[MIT](LICENSE) © 2026 jmozez

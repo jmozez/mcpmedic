@@ -1,6 +1,6 @@
 name: mcpmedic
 description: Check an MCP server's tools for problems that trip up AI agents, with a score and a report.
-author: Dr. Jimmy Moses
+author: jmozez
 branding:
   icon: activity
   color: green
