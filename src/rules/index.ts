@@ -183,7 +183,8 @@ export const rules: Rule[] = [
 
 rules.push(...probeRules);
 
-export function runRules(snapshot: ServerSnapshot, only?: string[]): Finding[] {
-  const active = only?.length ? rules.filter((r) => only.includes(r.id)) : rules;
+export function runRules(snapshot: ServerSnapshot, only?: string[], extra: Rule[] = []): Finding[] {
+  const all = [...rules, ...extra];
+  const active = only?.length ? all.filter((r) => only.includes(r.id)) : all;
   return active.flatMap((r) => r.check(snapshot));
 }

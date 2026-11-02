@@ -10,7 +10,7 @@
     "dist",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "hosts"
   ],
   "engines": {
     "node": ">=20"

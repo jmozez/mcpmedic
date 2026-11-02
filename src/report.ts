@@ -8,11 +8,13 @@ export interface Report {
   summary: { tools: number; tokens: number; errors: number; warnings: number; infos: number; score: number };
   tokensByTool: { name: string; tokens: number }[];
   findings: Finding[];
+  /** Version of the host rule pack used, if any. */
+  hostPack?: string;
 }
 
 const WEIGHT: Record<Severity, number> = { error: 10, warning: 3, info: 0 };
 
-/** 100 minus a penalty per finding, scaled by the number of tools, floored at 0. */
+/** Host rules are reported but do not change the score. 100 minus a penalty per finding, scaled by the number of tools, floored at 0. */
 export function score(findings: Finding[], tools: number): number {
   const penalty = findings.reduce((n, f) => n + WEIGHT[f.severity], 0);
   return Math.max(0, Math.round(100 - (penalty / Math.max(1, tools)) * 5));
@@ -31,7 +33,7 @@ export function buildReport(snap: ServerSnapshot, findings: Finding[], version: 
       errors: count("error"),
       warnings: count("warning"),
       infos: count("info"),
-      score: score(findings, snap.tools.length),
+      score: score(findings.filter((f) => !f.host), snap.tools.length),
     },
     tokensByTool,
     findings,
@@ -50,6 +52,7 @@ export function formatText(r: Report, color = false): string {
     const where = [f.tool, f.path].filter(Boolean).join(" ");
     lines.push(`  ${mark[f.severity]}  ${f.rule.padEnd(22)} ${where ? where + ": " : ""}${f.message}`);
     if (f.fix) lines.push(`         ${" ".repeat(22)} fix: ${f.fix}`);
+    if (f.source) lines.push(`         ${" ".repeat(22)} source: ${f.source}`);
   }
   if (r.findings.length) lines.push("");
   const top = r.tokensByTool.slice(0, 5).map((t) => `${t.name} (${t.tokens})`).join(", ");

@@ -2,6 +2,7 @@ import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
 import { openSession, snapshot, type Target } from "./connect.js";
 import { probe } from "./probe.js";
+import { hostRules, loadHostPack } from "./hosts.js";
 import { rules, runRules } from "./rules/index.js";
 import { buildReport, formatText } from "./report.js";
 import type { Severity } from "./types.js";
@@ -16,11 +17,14 @@ Usage
   mcpmedic check --url <url>              check a remote (Streamable HTTP or SSE) server
   mcpmedic check --file <tools.json>      check a saved tools/list result
   mcpmedic rules                          list every check
+  mcpmedic hosts                          list the host rules and their sources
 
 Options
   --probe                call each read-only tool with sample input and check the answers
   --probe-all            also call tools not marked read-only (only use on a test server)
   --probe-tool <name>    probe only this tool (repeatable)
+  --host <id>            check only this host's rules (repeatable), or "none" to skip them
+  --server-name <name>   the name users give the server in their config (for prefixed tool names)
   --json                 print the report as JSON
   --fail-on <level>      exit with code 1 at this level or above: error (default), warning, info, never
   --rule <id>            run only this check (repeatable)
@@ -45,6 +49,8 @@ export async function main(argv: string[]): Promise<number> {
       url: { type: "string" },
       file: { type: "string" },
       json: { type: "boolean", default: false },
+      host: { type: "string", multiple: true },
+      "server-name": { type: "string" },
       probe: { type: "boolean", default: false },
       "probe-all": { type: "boolean", default: false },
       "probe-tool": { type: "string", multiple: true },
@@ -64,6 +70,19 @@ export async function main(argv: string[]): Promise<number> {
 
   if (cmd === "rules") {
     for (const r of rules) console.log(`${r.id.padEnd(24)} ${r.severity.padEnd(8)} ${r.summary}`);
+    return 0;
+  }
+  if (cmd === "hosts") {
+    const pack = loadHostPack();
+    console.log(`Host rule pack ${pack.version}\n`);
+    for (const [id, name] of Object.entries(pack.hosts)) {
+      console.log(`${name} (--host ${id})`);
+      for (const r of pack.rules.filter((x) => x.host === id)) {
+        console.log(`  ${r.id.padEnd(28)} ${r.severity.padEnd(8)} ${r.summary}`);
+        console.log(`  ${" ".repeat(28)} ${r.source}`);
+      }
+      console.log("");
+    }
     return 0;
   }
   if (cmd !== "check") { console.error(`Unknown command "${cmd}". Run mcpmedic --help.`); return 2; }
@@ -106,7 +125,14 @@ export async function main(argv: string[]): Promise<number> {
   } else {
     snap = await snapshot(target, timeoutMs);
   }
-  const report = buildReport(snap, runRules(snap, values.rule), VERSION);
+  const pack = loadHostPack();
+  const hostIds = values.host ?? [];
+  for (const h of hostIds) {
+    if (h !== "none" && !pack.hosts[h]) { console.error(`Unknown host "${h}". Run mcpmedic hosts to see them.`); return 2; }
+  }
+  const extra = hostIds.includes("none") ? [] : hostRules(pack, hostIds, { serverName: values["server-name"] });
+  const report = buildReport(snap, runRules(snap, values.rule, extra), VERSION);
+  report.hostPack = extra.length ? pack.version : undefined;
   console.log(values.json ? JSON.stringify(report, null, 2) : formatText(report, process.stdout.isTTY));
 
   if (failOn === "never") return 0;

@@ -1,0 +1,174 @@
+# mcpmedic host rule pack.
+# Each rule records what a host (an MCP client or model API) does with a server's tools,
+# with a link to the page that says so and a short quote. Rules are checked against the
+# source on the date in `checked`. If a host changes, update the rule and bump `version`.
+version: 2026.11.03
+
+hosts:
+  claude-api: Claude API (tools passed straight to the Messages API)
+  claude-code: Claude Code
+  codex: OpenAI Codex
+  openai-api: OpenAI API (function calling)
+  gemini-api: Gemini API (function calling)
+  vscode: VS Code (GitHub Copilot agent mode)
+
+rules:
+  - id: claude-api-tool-name
+    host: claude-api
+    severity: error
+    summary: Tool names match ^[a-zA-Z0-9_-]{1,128}$, so no dots or spaces.
+    check: { type: name-pattern, pattern: "^[a-zA-Z0-9_-]{1,128}$" }
+    fix: Use only letters, digits, underscores and hyphens. Replace dots with underscores.
+    source: https://platform.claude.com/docs/en/agents-and-tools/tool-use/implement-tool-use
+    quote: "The name of the tool. Must match the regex ^[a-zA-Z0-9_-]{1,128}$."
+    checked: 2026-11-03
+
+  - id: claude-api-tool-count
+    host: claude-api
+    severity: info
+    summary: Fewer than 30 tools, because tool choice degrades beyond 30 to 50.
+    check: { type: max-tools, max: 30 }
+    fix: Offer a smaller default set, or rely on tool search with deferred loading.
+    source: https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool
+    quote: "Claude's ability to pick the right tool degrades once you exceed 30-50 available tools."
+    checked: 2026-11-03
+
+  - id: claude-code-full-name
+    host: claude-code
+    severity: error
+    summary: The full name mcp__<server>__<tool> is at most 128 characters, or the tool is left out.
+    check: { type: name-length, max: 128, template: "mcp__{server}__{tool}" }
+    fix: Shorten the tool name. The server name users pick also counts towards the limit.
+    source: https://code.claude.com/docs/en/mcp
+    quote: "Claude Code leaves an MCP tool out of the tools it sends to Claude when its full name is over 128 characters."
+    checked: 2026-11-03
+
+  - id: claude-code-property-names
+    host: claude-code
+    severity: error
+    summary: Top-level property names are 1 to 64 ASCII letters, digits, _, . or -, or the tool is left out.
+    check: { type: property-names, pattern: "^[A-Za-z0-9_.-]{1,64}$" }
+    fix: Rename the parameter using only letters, digits, underscores, dots and hyphens.
+    source: https://code.claude.com/docs/en/mcp
+    quote: "Top-level property names must be 1 to 64 characters long and use only ASCII letters and digits, _, ., and -"
+    checked: 2026-11-03
+
+  - id: claude-code-schema-valid
+    host: claude-code
+    severity: error
+    summary: Input schemas are valid JSON Schema draft 2020-12, or the tool is left out.
+    check: { type: schema-meta-2020 }
+    fix: Fix the schema so it validates against the draft 2020-12 meta-schema.
+    source: https://code.claude.com/docs/en/mcp
+    quote: "The schema must be valid against the JSON Schema draft 2020-12 meta-schema."
+    checked: 2026-11-03
+
+  - id: claude-code-root-combinator
+    host: claude-code
+    severity: warning
+    summary: No anyOf, oneOf or allOf at the root of an input schema, because Claude Code has to flatten it.
+    check: { type: root-combinator }
+    fix: Use one object with optional properties, and explain which ones go together in the descriptions.
+    source: https://code.claude.com/docs/en/mcp
+    quote: "The Claude API doesn't accept those keywords at the schema root. ... Claude Code flattens the schema into a single object and prepends a sentence to the tool's description"
+    checked: 2026-11-03
+
+  - id: claude-code-output-warning
+    host: claude-code
+    severity: warning
+    summary: Responses stay under 10,000 tokens, where Claude Code starts warning. Needs --probe.
+    check: { type: response-tokens, max: 10000 }
+    fix: Page results or add a limit argument with a small default.
+    source: https://code.claude.com/docs/en/mcp
+    quote: "Claude Code displays a warning when MCP tool output exceeds 10,000 tokens"
+    checked: 2026-11-03
+
+  - id: claude-code-output-limit
+    host: claude-code
+    severity: error
+    summary: Responses stay under 25,000 tokens, the default output limit. Needs --probe.
+    check: { type: response-tokens, max: 25000 }
+    fix: Page results or add a limit argument with a small default.
+    source: https://code.claude.com/docs/en/mcp
+    quote: "limits output to 25,000 tokens by default"
+    checked: 2026-11-03
+
+  - id: codex-instructions-length
+    host: codex
+    severity: info
+    summary: Server instructions over 512 characters should make sense from the first 512 alone.
+    check: { type: instructions-length, max: 512 }
+    fix: Put the most important guidance in the first 512 characters.
+    source: https://developers.openai.com/codex/mcp
+    quote: "Keep the first 512 characters self-contained so the most important guidance is available when Codex is deciding how to use the server."
+    checked: 2026-11-03
+
+  - id: codex-tool-timeout
+    host: codex
+    severity: error
+    summary: Tool calls finish within 60 seconds, the default tool timeout. Needs --probe.
+    check: { type: call-ms, max: 60000 }
+    fix: Return sooner, or tell users to raise tool_timeout_sec.
+    source: https://developers.openai.com/codex/mcp
+    quote: "tool_timeout_sec (optional): Timeout (seconds) for the server to run a tool. Default: 60."
+    checked: 2026-11-03
+
+  - id: codex-startup-timeout
+    host: codex
+    severity: error
+    summary: The server starts and lists its tools within 10 seconds, the default startup timeout.
+    check: { type: startup-ms, max: 10000 }
+    fix: Start faster (load heavy things lazily), or tell users to raise startup_timeout_sec.
+    source: https://developers.openai.com/codex/mcp
+    quote: "startup_timeout_sec (optional): Timeout (seconds) for the server to start. Default: 10."
+    checked: 2026-11-03
+
+  - id: codex-read-only-hint
+    host: codex
+    severity: info
+    summary: Tools that only read say so, or Codex prompts for them in writes mode.
+    check: { type: read-only-hint }
+    fix: Add annotations.readOnlyHint true to tools that do not change anything.
+    source: https://developers.openai.com/codex/mcp
+    quote: "The writes mode prompts for tools that aren't marked read-only."
+    checked: 2026-11-03
+
+  - id: openai-api-tool-count
+    host: openai-api
+    severity: info
+    summary: Fewer than 20 tools at the start of a turn, a soft suggestion for accuracy.
+    check: { type: max-tools, max: 20 }
+    fix: Offer a smaller default set, or defer rarely used tools with tool search.
+    source: https://developers.openai.com/api/docs/guides/function-calling
+    quote: "Aim for fewer than 20 functions available at the start of a turn at any one time, though this is just a soft suggestion."
+    checked: 2026-11-03
+
+  - id: gemini-api-tool-count
+    host: gemini-api
+    severity: info
+    summary: Keep the active set to 10 to 20 tools at most.
+    check: { type: max-tools, max: 20 }
+    fix: Offer a smaller default set of tools.
+    source: https://ai.google.dev/gemini-api/docs/function-calling
+    quote: "Tool Selection: Keep active set to 10-20 tools maximum."
+    checked: 2026-11-03
+
+  - id: gemini-api-tool-name
+    host: gemini-api
+    severity: info
+    summary: Tool names have no spaces or special characters (underscores or camelCase).
+    check: { type: name-pattern, pattern: "^[A-Za-z_][A-Za-z0-9_]*$" }
+    fix: Use underscores or camelCase, for example get_weather.
+    source: https://ai.google.dev/gemini-api/docs/function-calling
+    quote: "Naming: Use descriptive names without spaces or special characters."
+    checked: 2026-11-03
+
+  - id: vscode-tool-count
+    host: vscode
+    severity: warning
+    summary: Fewer than 128 tools, the most VS Code sends in one chat request.
+    check: { type: max-tools, max: 128 }
+    fix: Split the server or offer tool sets. Users' other servers and extensions count too.
+    source: https://code.visualstudio.com/docs/agents/run/tools
+    quote: "A chat request can have a maximum of 128 tools enabled at a time."
+    checked: 2026-11-03

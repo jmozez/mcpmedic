@@ -24,6 +24,8 @@ export interface ServerSnapshot {
   serverVersion?: string;
   protocolVersion?: string;
   instructions?: string;
+  /** Milliseconds from launch until the tool list was read. */
+  startupMs?: number;
   tools: ToolDefinition[];
   /** Results of live calls, present only when the server was probed. */
   probes?: ProbeResult[];
@@ -59,6 +61,9 @@ export interface Finding {
   path?: string;
   message: string;
   fix?: string;
+  /** For host rules: which host, and the page that documents the behaviour. */
+  host?: string;
+  source?: string;
 }
 
 export interface Rule {
