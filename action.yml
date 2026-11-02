@@ -1,0 +1,92 @@
+name: mcpmedic
+description: Check an MCP server's tools for problems that trip up AI agents, with a score and a report.
+author: Dr. Jimmy Moses
+branding:
+  icon: activity
+  color: green
+
+inputs:
+  command:
+    description: Command that starts a stdio server, for example "node dist/server.js". Use this, url or file.
+    required: false
+  url:
+    description: URL of a Streamable HTTP or SSE server.
+    required: false
+  file:
+    description: Path to a saved tools/list result.
+    required: false
+  fail-on:
+    description: "Fail the step at this level or above: error, warning, info or never."
+    default: error
+  probe:
+    description: Set to "true" to call read-only tools with sample input (needs command or url).
+    default: "false"
+  host:
+    description: Comma-separated host ids to check (see mcpmedic hosts), or "none". Empty checks every host.
+    default: ""
+  args:
+    description: Any other mcpmedic options, added as they are.
+    default: ""
+  html:
+    description: Where to write the HTML report.
+    default: mcpmedic-report.html
+  badge:
+    description: Where to write a shields.io endpoint badge JSON file. Empty skips it.
+    default: ""
+
+outputs:
+  score:
+    description: The score out of 100.
+    value: ${{ steps.run.outputs.score }}
+  report:
+    description: Path to the HTML report.
+    value: ${{ inputs.html }}
+
+runs:
+  using: composite
+  steps:
+    - name: Build mcpmedic
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --no-audit --no-fund --ignore-scripts && npm run build
+    - name: Run mcpmedic
+      id: run
+      shell: bash
+      env:
+        IN_COMMAND: ${{ inputs.command }}
+        IN_URL: ${{ inputs.url }}
+        IN_FILE: ${{ inputs.file }}
+        IN_FAIL_ON: ${{ inputs.fail-on }}
+        IN_PROBE: ${{ inputs.probe }}
+        IN_HOST: ${{ inputs.host }}
+        IN_ARGS: ${{ inputs.args }}
+        IN_HTML: ${{ inputs.html }}
+        IN_BADGE: ${{ inputs.badge }}
+        CLI: ${{ github.action_path }}/dist/cli.js
+      run: |
+        set -euo pipefail
+        opts=(--fail-on never --json --html "$IN_HTML")
+        [ -n "$IN_BADGE" ] && opts+=(--badge "$IN_BADGE")
+        [ "$IN_PROBE" = "true" ] && opts+=(--probe)
+        IFS=',' read -ra hosts <<< "$IN_HOST"
+        for h in "${hosts[@]}"; do [ -n "$h" ] && opts+=(--host "$h"); done
+        # shellcheck disable=SC2206
+        extra=($IN_ARGS)
+        if [ -n "$IN_FILE" ]; then target=(--file "$IN_FILE")
+        elif [ -n "$IN_URL" ]; then target=(--url "$IN_URL")
+        elif [ -n "$IN_COMMAND" ]; then
+          # shellcheck disable=SC2206
+          cmd=($IN_COMMAND); target=(-- "${cmd[@]}")
+        else echo "::error::Set one of command, url or file."; exit 2; fi
+        node "$CLI" check "${opts[@]}" "${extra[@]}" "${target[@]}" > mcpmedic-report.json
+        score=$(node -e 'console.log(require(process.argv[1]).summary.score)' "$PWD/mcpmedic-report.json")
+        echo "score=$score" >> "$GITHUB_OUTPUT"
+        node -e '
+          const r = require(process.argv[1]); const s = r.summary;
+          const lines = ["## mcpmedic: " + s.score + "/100", "", s.tools + " tools, about " + s.tokens + " tokens. " + s.errors + " errors, " + s.warnings + " warnings, " + s.infos + " notes.", ""];
+          if (r.findings.length) { lines.push("| Level | Check | Tool | Finding |", "| --- | --- | --- | --- |");
+            for (const f of r.findings.slice(0, 50)) lines.push("| " + [f.severity, f.rule, f.tool || "", f.message].map(x => String(x).replace(/\|/g, "\\|")).join(" | ") + " |"); }
+          require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+          const order = ["info", "warning", "error"]; const min = order.indexOf(process.argv[2]);
+          if (min >= 0 && r.findings.some(f => order.indexOf(f.severity) >= min)) { console.log("::error::mcpmedic found problems at " + process.argv[2] + " level or above. See the job summary."); process.exit(1); }
+        ' "$PWD/mcpmedic-report.json" "$IN_FAIL_ON"
