@@ -5,6 +5,8 @@ import { probe } from "./probe.js";
 import { hostRules, loadHostPack } from "./hosts.js";
 import { rules, runRules } from "./rules/index.js";
 import { buildReport, formatText } from "./report.js";
+import { badgeJson, formatHtml } from "./html.js";
+import { writeFileSync } from "node:fs";
 import type { Severity } from "./types.js";
 
 const require = createRequire(import.meta.url);
@@ -26,6 +28,8 @@ Options
   --host <id>            check only this host's rules (repeatable), or "none" to skip them
   --server-name <name>   the name users give the server in their config (for prefixed tool names)
   --json                 print the report as JSON
+  --html <file>          also write the report as a single HTML page
+  --badge <file>         also write a shields.io endpoint badge with the score
   --fail-on <level>      exit with code 1 at this level or above: error (default), warning, info, never
   --rule <id>            run only this check (repeatable)
   --header "Name: value" add an HTTP header (repeatable), for example an Authorization header
@@ -49,6 +53,8 @@ export async function main(argv: string[]): Promise<number> {
       url: { type: "string" },
       file: { type: "string" },
       json: { type: "boolean", default: false },
+      html: { type: "string" },
+      badge: { type: "string" },
       host: { type: "string", multiple: true },
       "server-name": { type: "string" },
       probe: { type: "boolean", default: false },
@@ -133,6 +139,8 @@ export async function main(argv: string[]): Promise<number> {
   const extra = hostIds.includes("none") ? [] : hostRules(pack, hostIds, { serverName: values["server-name"] });
   const report = buildReport(snap, runRules(snap, values.rule, extra), VERSION);
   report.hostPack = extra.length ? pack.version : undefined;
+  if (values.html) writeFileSync(values.html, formatHtml(report));
+  if (values.badge) writeFileSync(values.badge, badgeJson(report));
   console.log(values.json ? JSON.stringify(report, null, 2) : formatText(report, process.stdout.isTTY));
 
   if (failOn === "never") return 0;

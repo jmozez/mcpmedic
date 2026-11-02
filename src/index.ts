@@ -5,3 +5,5 @@ export { sampleArguments, sampleValue } from "./sample.js";
 export { buildReport, formatText, score, type Report } from "./report.js";
 export { estimateTokens, toolTokens } from "./tokens.js";
 export type * from "./types.js";
+export { formatHtml, badgeJson } from "./html.js";
+export { loadHostPack, hostRules, type HostPack, type HostRule } from "./hosts.js";
