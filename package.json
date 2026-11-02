@@ -1,0 +1,52 @@
+{
+  "name": "mcpmedic",
+  "version": "0.1.0-dev",
+  "description": "Check your MCP server before your users do. Lints tool definitions and reports problems, token cost and fixes.",
+  "type": "module",
+  "bin": {
+    "mcpmedic": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "tsx src/cli.ts"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "lint",
+    "ai-agents",
+    "testing",
+    "cli"
+  ],
+  "author": "Dr. Jimmy Moses",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jmozez/mcpmedic.git"
+  },
+  "homepage": "https://github.com/jmozez/mcpmedic#readme",
+  "bugs": {
+    "url": "https://github.com/jmozez/mcpmedic/issues"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "@types/node": "^26.6.6",
+    "vitest": "^5.1.0",
+    "tsx": "^4.23.15"
+  }
+}
