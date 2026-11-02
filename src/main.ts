@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
-import { snapshot, type Target } from "./connect.js";
+import { openSession, snapshot, type Target } from "./connect.js";
+import { probe } from "./probe.js";
 import { rules, runRules } from "./rules/index.js";
 import { buildReport, formatText } from "./report.js";
 import type { Severity } from "./types.js";
@@ -17,6 +18,9 @@ Usage
   mcpmedic rules                          list every check
 
 Options
+  --probe                call each read-only tool with sample input and check the answers
+  --probe-all            also call tools not marked read-only (only use on a test server)
+  --probe-tool <name>    probe only this tool (repeatable)
   --json                 print the report as JSON
   --fail-on <level>      exit with code 1 at this level or above: error (default), warning, info, never
   --rule <id>            run only this check (repeatable)
@@ -41,6 +45,9 @@ export async function main(argv: string[]): Promise<number> {
       url: { type: "string" },
       file: { type: "string" },
       json: { type: "boolean", default: false },
+      probe: { type: "boolean", default: false },
+      "probe-all": { type: "boolean", default: false },
+      "probe-tool": { type: "string", multiple: true },
       "fail-on": { type: "string", default: "error" },
       rule: { type: "string", multiple: true },
       header: { type: "string", multiple: true },
@@ -84,7 +91,21 @@ export async function main(argv: string[]): Promise<number> {
     target = { kind: "stdio", command: serverCmd[0], args: serverCmd.slice(1), env };
   } else { console.error("Tell mcpmedic what to check: -- <command>, --url or --file."); return 2; }
 
-  const snap = await snapshot(target, Number(values.timeout) * 1000);
+  const timeoutMs = Number(values.timeout) * 1000;
+  const probing = values.probe || values["probe-all"] || Boolean(values["probe-tool"]?.length);
+  let snap;
+  if (probing) {
+    if (target.kind === "file") { console.error("Probes need a live server: use -- <command> or --url, not --file."); return 2; }
+    const session = await openSession(target, timeoutMs);
+    try {
+      snap = { ...session.snapshot };
+      snap.probes = await probe(session.client, snap, { all: values["probe-all"], only: values["probe-tool"], timeoutMs });
+    } finally {
+      await session.close();
+    }
+  } else {
+    snap = await snapshot(target, timeoutMs);
+  }
   const report = buildReport(snap, runRules(snap, values.rule), VERSION);
   console.log(values.json ? JSON.stringify(report, null, 2) : formatText(report, process.stdout.isTTY));
 

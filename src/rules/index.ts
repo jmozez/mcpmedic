@@ -1,5 +1,6 @@
 import type { Finding, Rule, ServerSnapshot, ToolDefinition } from "../types.js";
 import { toolTokens } from "../tokens.js";
+import { probeRules } from "./probe.js";
 
 const NAME_PATTERN = /^[A-Za-z0-9_.-]{1,64}$/;
 const VAGUE = /^(does|handles|manages|processes|gets|runs|a tool|tool for|utility)\b/i;
@@ -179,6 +180,8 @@ export const rules: Rule[] = [
     },
   },
 ];
+
+rules.push(...probeRules);
 
 export function runRules(snapshot: ServerSnapshot, only?: string[]): Finding[] {
   const active = only?.length ? rules.filter((r) => only.includes(r.id)) : rules;

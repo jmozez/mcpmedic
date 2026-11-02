@@ -23,7 +23,33 @@ export interface ServerSnapshot {
   serverName?: string;
   serverVersion?: string;
   protocolVersion?: string;
+  instructions?: string;
   tools: ToolDefinition[];
+  /** Results of live calls, present only when the server was probed. */
+  probes?: ProbeResult[];
+}
+
+export interface CallOutcome {
+  ok: boolean;
+  /** The tool returned a result with isError set. */
+  isError?: boolean;
+  /** The call failed at the protocol level, or timed out. */
+  thrown?: string;
+  timedOut?: boolean;
+  ms: number;
+  text: string;
+  tokens: number;
+  structured?: unknown;
+}
+
+export interface ProbeResult {
+  tool: string;
+  /** Why the tool was not called, if it was skipped. */
+  skipped?: string;
+  input?: Record<string, unknown>;
+  valid?: CallOutcome;
+  /** A call with the required arguments left out, to see how errors read. */
+  invalid?: CallOutcome;
 }
 
 export interface Finding {

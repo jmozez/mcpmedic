@@ -29,6 +29,7 @@ async function snapshotFrom(client: Client): Promise<ServerSnapshot> {
     serverName: info?.name,
     serverVersion: info?.version,
     protocolVersion: (client as unknown as { _negotiatedProtocolVersion?: string })._negotiatedProtocolVersion,
+    instructions: client.getInstructions(),
     tools: await listAll(client),
   };
 }
@@ -38,16 +39,33 @@ export async function fromFile(path: string): Promise<ServerSnapshot> {
   const data = JSON.parse(await readFile(path, "utf8"));
   const tools = Array.isArray(data) ? data : data?.tools ?? data?.result?.tools;
   if (!Array.isArray(tools)) throw new Error(`${path} does not contain a tools array.`);
-  return { serverName: data?.serverName, tools };
+  return { serverName: data?.serverName, instructions: data?.instructions, tools };
 }
 
-export async function snapshot(target: Target, timeoutMs = 30000): Promise<ServerSnapshot> {
-  if (target.kind === "file") return fromFile(target.path);
+export interface Session {
+  client: Client;
+  snapshot: ServerSnapshot;
+  close(): Promise<void>;
+}
 
-  const withTimeout = <T>(p: Promise<T>) => Promise.race([
+export function withTimeout<T>(p: Promise<T>, timeoutMs: number, what = "the server"): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  return Promise.race([
     p,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`No answer from the server within ${timeoutMs / 1000} s.`)), timeoutMs).unref()),
-  ]);
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`No answer from ${what} within ${timeoutMs / 1000} s.`)), timeoutMs);
+      timer.unref();
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+/** Connects to a live server and keeps the connection open, for probes and evals. */
+export async function openSession(target: Exclude<Target, { kind: "file" }>, timeoutMs = 30000): Promise<Session> {
+  const ready = async (client: Client): Promise<Session> => ({
+    client,
+    snapshot: await withTimeout(snapshotFrom(client), timeoutMs),
+    close: () => client.close().catch(() => undefined),
+  });
 
   if (target.kind === "stdio") {
     const client = new Client(CLIENT_INFO);
@@ -58,10 +76,11 @@ export async function snapshot(target: Target, timeoutMs = 30000): Promise<Serve
       stderr: "pipe",
     });
     try {
-      await withTimeout(client.connect(transport));
-      return await withTimeout(snapshotFrom(client));
-    } finally {
+      await withTimeout(client.connect(transport), timeoutMs);
+      return await ready(client);
+    } catch (e) {
       await client.close().catch(() => undefined);
+      throw e;
     }
   }
 
@@ -69,21 +88,29 @@ export async function snapshot(target: Target, timeoutMs = 30000): Promise<Serve
   const requestInit = target.headers ? { headers: target.headers } : undefined;
   const client = new Client(CLIENT_INFO);
   try {
-    await withTimeout(client.connect(new StreamableHTTPClientTransport(url, { requestInit })));
-    return await withTimeout(snapshotFrom(client));
+    await withTimeout(client.connect(new StreamableHTTPClientTransport(url, { requestInit })), timeoutMs);
+    return await ready(client);
   } catch (first) {
     // Older servers only speak the deprecated HTTP+SSE transport.
     await client.close().catch(() => undefined);
     const legacy = new Client(CLIENT_INFO);
     try {
-      await withTimeout(legacy.connect(new SSEClientTransport(url, { requestInit })));
-      return await withTimeout(snapshotFrom(legacy));
+      await withTimeout(legacy.connect(new SSEClientTransport(url, { requestInit })), timeoutMs);
+      return await ready(legacy);
     } catch {
-      throw first;
-    } finally {
       await legacy.close().catch(() => undefined);
+      throw first;
     }
+  }
+}
+
+/** Reads the tool list once and disconnects. */
+export async function snapshot(target: Target, timeoutMs = 30000): Promise<ServerSnapshot> {
+  if (target.kind === "file") return fromFile(target.path);
+  const session = await openSession(target, timeoutMs);
+  try {
+    return session.snapshot;
   } finally {
-    await client.close().catch(() => undefined);
+    await session.close();
   }
 }
