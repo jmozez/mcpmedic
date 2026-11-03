@@ -19,6 +19,8 @@ export interface Provider {
   /** For example "openai:gpt-4o-mini". */
   id: string;
   choose(req: ChooseRequest): Promise<Choice>;
+  /** Plain text completion, used by fix mode to rewrite descriptions. */
+  complete(system: string, prompt: string): Promise<string>;
 }
 
 export interface ProviderOptions {
@@ -90,6 +92,11 @@ export function openAICompatible(id: string, baseUrl: string, model: string, api
       if (!call) return { tool: null, text: msg.content ?? undefined };
       return { tool: back.get(call.name) ?? call.name, args: parseArgs(call.arguments), text: msg.content ?? undefined };
     },
+    async complete(system, prompt) {
+      const body = { model, temperature: o.temperature ?? 0, messages: [{ role: "system", content: system }, { role: "user", content: prompt }] };
+      const data = await post(f, `${baseUrl.replace(/\/$/, "")}/chat/completions`, apiKey ? { authorization: `Bearer ${apiKey}` } : {}, body, o.timeoutMs ?? 60_000);
+      return String(data?.choices?.[0]?.message?.content ?? "");
+    },
   };
 }
 
@@ -113,6 +120,11 @@ export function anthropic(model: string, apiKey: string, o: ProviderOptions = {}
       const use = blocks.find((b) => b.type === "tool_use");
       if (!use) return { tool: null, text };
       return { tool: back.get(String(use.name)) ?? String(use.name), args: parseArgs(use.input), text };
+    },
+    async complete(system, prompt) {
+      const body = { model, max_tokens: 1024, temperature: o.temperature ?? 0, system, messages: [{ role: "user", content: prompt }] };
+      const data = await post(f, `${baseUrl.replace(/\/$/, "")}/v1/messages`, { "x-api-key": apiKey, "anthropic-version": "2023-06-01" }, body, o.timeoutMs ?? 60_000);
+      return (data?.content ?? []).filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("\n");
     },
   };
 }
@@ -138,6 +150,13 @@ export function mock(): Provider {
         if (s > bestScore) { best = t.name; bestScore = s; }
       }
       return { tool: best };
+    },
+    /** Echoes the lines after "Prompts that should use it:" as a description, so fix mode can be tested offline. */
+    async complete(_system, prompt) {
+      const want = prompt.split("Prompts that should use it:")[1]?.split("\n\n")[0] ?? "";
+      const asks = want.split("\n").map((l) => l.replace(/^- /, "").trim()).filter(Boolean);
+      const name = /Tool: (.+)/.exec(prompt)?.[1] ?? "this tool";
+      return asks.length ? `Use ${name} when the user asks things like: ${asks.join("; ")}.` : `Use ${name} for its stated purpose.`;
     },
   };
 }

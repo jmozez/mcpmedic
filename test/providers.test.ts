@@ -73,3 +73,12 @@ describe("providers", () => {
     expect((await mock().choose({ prompt: "tell a joke", tools })).tool).toBeNull();
   });
 });
+
+describe("complete", () => {
+  it("returns plain text from both formats", async () => {
+    const o = makeProvider("openai:x", { env: { OPENAI_API_KEY: "k" }, fetch: (async () => new Response(JSON.stringify({ choices: [{ message: { content: "New text." } }] }))) as unknown as typeof fetch });
+    expect(await o.complete("s", "p")).toBe("New text.");
+    const a = makeProvider("anthropic:x", { env: { ANTHROPIC_API_KEY: "k" }, fetch: (async () => new Response(JSON.stringify({ content: [{ type: "text", text: "Hi." }] }))) as unknown as typeof fetch });
+    expect(await a.complete("s", "p")).toBe("Hi.");
+  });
+});
