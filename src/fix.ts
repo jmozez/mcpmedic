@@ -1,3 +1,4 @@
+import { printable } from "./sanitize.js";
 import type { Provider } from "./providers.js";
 import type { ToolDefinition } from "./types.js";
 import { runEval, type EvalResult, type EvalSuite } from "./eval.js";
@@ -108,6 +109,10 @@ export async function runFix(judge: Provider, rewriter: Provider, tools: ToolDef
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 export function formatFix(r: FixResult): string {
+  return printable(formatFixRaw(r));
+}
+
+function formatFixRaw(r: FixResult): string {
   const lines = [
     `mcpmedic fix: judged by ${r.model}, rewritten by ${r.rewriter}`,
     `Accuracy ${pct(r.baseline.summary.accuracy)} -> ${pct(r.final.summary.accuracy)}, consistency ${pct(r.baseline.summary.consistency)} -> ${pct(r.final.summary.consistency)}`,

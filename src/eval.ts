@@ -1,3 +1,4 @@
+import { printable } from "./sanitize.js";
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 import type { Choice, Provider } from "./providers.js";
@@ -138,6 +139,10 @@ export async function runEval(provider: Provider, tools: ToolDefinition[], suite
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 export function formatEval(r: EvalResult): string {
+  return printable(formatEvalRaw(r));
+}
+
+function formatEvalRaw(r: EvalResult): string {
   const s = r.summary;
   const lines = [
     `mcpmedic eval with ${r.model}: ${r.cases.length} cases, ${r.repeat} runs each`,

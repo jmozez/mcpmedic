@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { main } from "./main.js";
+import { printable } from "./sanitize.js";
 
 let done = false;
 // Safety net: if every handle goes quiet before main() settles, Node would exit 0 with no output.
@@ -15,7 +16,7 @@ main(process.argv.slice(2)).then(
   (code) => { done = true; process.exitCode = code; },
   (err: unknown) => {
     done = true;
-    console.error(`mcpmedic: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`mcpmedic: ${printable(err instanceof Error ? err.message : String(err))}`);
     process.exitCode = 2;
   },
 );
