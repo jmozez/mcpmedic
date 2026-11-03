@@ -1,0 +1,7 @@
+{
+  "tools": [
+    { "name": "get_forecast", "description": "Get the 7-day weather forecast for a place. Use this when the user asks about upcoming weather.", "inputSchema": { "type": "object", "properties": { "place": { "type": "string" } }, "required": ["place"] } },
+    { "name": "send_email", "description": "Send an email message to a person.", "inputSchema": { "type": "object", "properties": { "to": { "type": "string" }, "body": { "type": "string" } }, "required": ["to", "body"] } },
+    { "name": "lookup", "description": "Looks things up." }
+  ]
+}
