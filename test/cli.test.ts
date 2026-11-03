@@ -57,3 +57,25 @@ describe("cli", () => {
     expect(score([{ rule: "a", severity: "error", message: "" }], 1)).toBe(50);
   });
 });
+
+describe("option validation", () => {
+  const F = "test/fixtures/good.json";
+  for (const [label, args] of [
+    ["a bad --timeout", ["check", "--timeout", "abc", "--file", F]],
+    ["a zero --timeout", ["check", "--timeout", "0", "--file", F]],
+    ["an unknown --rule", ["check", "--rule", "nope", "--file", F]],
+    ["an unknown --host", ["check", "--host", "nope", "--file", F]],
+    ["a stray argument", ["check", "stray", "--file", F]],
+    ["a bad --max-tools", ["fix", "--cases", "test/fixtures/cases.yaml", "--model", "mock", "--max-tools", "abc", "--file", "test/fixtures/eval-tools.json"]],
+  ] as const) {
+    it(`exits 2 for ${label}`, async () => {
+      capture();
+      expect(await main([...args])).toBe(2);
+    });
+  }
+
+  it("accepts a known rule id in --rule", async () => {
+    capture();
+    expect(await main(["check", "--rule", "name-format", "--file", F])).toBe(0);
+  });
+});

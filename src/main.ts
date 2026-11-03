@@ -45,7 +45,7 @@ Options
   --header "Name: value" add an HTTP header (repeatable), for example an Authorization header
   --env KEY=value        set an environment variable for a stdio server (repeatable)
   --inherit-env          pass all of mcpmedic's environment to a stdio server (default: a minimal set, like MCP hosts)
-  --timeout <seconds>    give up after this long (default 30)
+  --timeout <seconds>    give up after this long, 1 to 3600 (default 30)
 
 Eval options
   --cases <file>         YAML or JSON list of { prompt, expect } cases
@@ -128,6 +128,7 @@ export async function main(argv: string[]): Promise<number> {
   }
   if (!["check", "eval", "fix"].includes(cmd)) { console.error(`Unknown command "${cmd}". Run mcpmedic --help.`); return 2; }
 
+  if (positionals.length > 1) { console.error(`Unexpected argument "${positionals[1]}". Put the server command after --.`); return 2; }
   const failOn = values["fail-on"]!;
   if (![...ORDER, "never"].includes(failOn)) { console.error(`--fail-on must be error, warning, info or never.`); return 2; }
 
@@ -151,13 +152,28 @@ export async function main(argv: string[]): Promise<number> {
     target = { kind: "stdio", command: serverCmd[0], args: serverCmd.slice(1), env, inheritEnv: values["inherit-env"] === true };
   } else { console.error("Tell mcpmedic what to check: -- <command>, --url or --file."); return 2; }
 
-  const timeoutMs = Number(values.timeout) * 1000;
+  const timeout = Number(values.timeout);
+  if (!(timeout > 0 && timeout <= 3600)) { console.error("--timeout must be a number of seconds from 1 to 3600."); return 2; }
+  const timeoutMs = timeout * 1000;
+
+  // Check names before starting a server, so a typo fails fast instead of silently running nothing.
+  const pack = loadHostPack();
+  const hostIds = values.host ?? [];
+  for (const h of hostIds) {
+    if (h !== "none" && !pack.hosts[h]) { console.error(`Unknown host "${h}". Run mcpmedic hosts to see them.`); return 2; }
+  }
+  const knownRules = new Set([...rules.map((r) => r.id), ...pack.rules.map((r) => r.id)]);
+  for (const id of values.rule ?? []) {
+    if (!knownRules.has(id)) { console.error(`Unknown rule "${id}". Run mcpmedic rules or mcpmedic hosts to see them.`); return 2; }
+  }
   if (cmd === "eval" || cmd === "fix") {
     if (!values.cases || !values.model) { console.error(cmd + " needs --cases <file> and --model <provider:model>."); return 2; }
     const repeat = Number(values.repeat);
     const min = Number(values["min-accuracy"]);
     if (!Number.isInteger(repeat) || repeat < 1 || repeat > 50) { console.error("--repeat must be a whole number from 1 to 50."); return 2; }
     if (!(min >= 0 && min <= 100)) { console.error("--min-accuracy must be a percentage from 0 to 100."); return 2; }
+    const maxToolsIn = Number(values["max-tools"]);
+    if (!Number.isInteger(maxToolsIn) || maxToolsIn < 1 || maxToolsIn > 100) { console.error("--max-tools must be a whole number from 1 to 100."); return 2; }
     let provider, rewriter, suite;
     try {
       provider = makeProvider(values.model, { timeoutMs });
@@ -194,11 +210,6 @@ export async function main(argv: string[]): Promise<number> {
     }
   } else {
     snap = await snapshot(target, timeoutMs);
-  }
-  const pack = loadHostPack();
-  const hostIds = values.host ?? [];
-  for (const h of hostIds) {
-    if (h !== "none" && !pack.hosts[h]) { console.error(`Unknown host "${h}". Run mcpmedic hosts to see them.`); return 2; }
   }
   const extra = hostIds.includes("none") ? [] : hostRules(pack, hostIds, { serverName: values["server-name"] });
   const report = buildReport(snap, runRules(snap, values.rule, extra), VERSION);
