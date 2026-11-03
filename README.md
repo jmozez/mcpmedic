@@ -171,6 +171,40 @@ Without the action, in any CI:
 - run: npx --yes @jmozez/mcpmedic check --fail-on error -- node dist/server.js
 ```
 
+## Tool-choice evals
+
+A clean schema is not enough if the model picks the wrong tool. `mcpmedic eval` shows your tools to a model, sends each prompt from a cases file, and checks which tool it calls. Each case runs several times, so you can see both accuracy and consistency.
+
+```yaml
+# cases.yaml
+system: You help with weather and email.   # optional
+cases:
+  - prompt: What is the weather forecast for Wellington this week?
+    expect: get_forecast
+    args: { place: Wellington }             # optional, compared without case
+  - prompt: Send an email to Aroha
+    expect: [send_email, draft_email]       # any of these counts
+  - prompt: Tell me a joke
+    expect: none                            # the model should not call a tool
+```
+
+```bash
+export OPENAI_API_KEY=...                   # keys come only from environment variables
+mcpmedic eval --cases cases.yaml --model openai:gpt-4o-mini -- node dist/server.js
+mcpmedic eval --cases cases.yaml --model ollama:llama3.1 --repeat 5 --file tools.json
+```
+
+| `--model` | Key or setting |
+| --- | --- |
+| `openai:<model>` | `OPENAI_API_KEY`, optional `OPENAI_BASE_URL` |
+| `anthropic:<model>` | `ANTHROPIC_API_KEY` |
+| `openrouter:<model>` | `OPENROUTER_API_KEY` |
+| `ollama:<model>` | optional `OLLAMA_HOST` (default `http://localhost:11434`), no key |
+| `compatible:<model>` | `MCPMEDIC_BASE_URL` and optional `MCPMEDIC_API_KEY`, for LM Studio, vLLM and other OpenAI-compatible servers |
+| `mock` | none: picks by shared words, for tests and dry runs only |
+
+The report marks each case pass, flaky or FAIL, and lists the most common mix-ups. `--min-accuracy 90` exits with code 1 below 90%, and `--json` gives the full results. Calls use temperature 0. Evals send your tool definitions and prompts to the model you choose, so use a local model if they are private. mcpmedic never calls the tools themselves during an eval.
+
 ## Use it as a library
 
 ```ts
@@ -189,7 +223,7 @@ Each tool starts at 100. Every error costs 10 points and every warning 3, averag
 
 1. **Week 1 (done):** CLI, connections (stdio, Streamable HTTP, SSE, file), static checks, token cost, text and JSON reports, CI.
 2. **Week 2 (done):** live probes that call each tool with valid generated input, checks that errors are useful and responses fit host size limits, an open rule pack for each host (Claude, ChatGPT, Cursor, VS Code, Codex, Gemini CLI) with a source link per rule, an HTML report, a GitHub Action and a badge.
-3. **Week 3:** tool-choice evals that run on your own model key or a local model, with repeat runs to measure consistency.
+3. **Week 3 (done):** tool-choice evals that run on your own model key or a local model, with repeat runs to measure consistency.
 4. **Week 4:** fix mode that rewrites weak descriptions and keeps only changes that improve the eval score, SARIF output, and the first public release.
 
 ## Contributing
