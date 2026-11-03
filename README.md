@@ -9,11 +9,11 @@ An MCP server can pass every protocol test and still work badly in practice. Vag
 
 mcpmedic connects to your server, reads its tools, and tells you in plain language what will trip up an AI agent, how to fix it, and how much context each tool costs. It runs on your own machine, needs no account, and sends your data nowhere.
 
-> Status: early development (week 1 of 4). It is not on npm yet. Live probes, host rules, model-based evals and proven fixes are coming next. See the [roadmap](#roadmap).
+> Status: 0.1.0, the first public release. It checks tool definitions, probes live servers, applies host rules, runs tool-choice evals and proves description fixes. See the [changelog](CHANGELOG.md).
 
 ## What it checks
 
-18 checks today, all static (they read the tool definitions, they do not call your tools):
+20 static checks, which read the tool definitions without calling your tools. [Live probes](#live-probes) add 8 more.
 
 | Check | Level | What it means |
 | --- | --- | --- |
@@ -30,6 +30,8 @@ mcpmedic connects to your server, reads its tools, and tells you in plain langua
 | `param-type` | warning | Every parameter declares a type. |
 | `empty-enum` | error | Enums list at least one value. |
 | `missing-annotations` | info | Tools say whether they are read-only or destructive. |
+| `suspicious-instructions` | error | Descriptions describe the tool and do not give the model hidden orders (tool poisoning). |
+| `hidden-characters` | error | Descriptions contain no invisible or control characters. |
 | `conflicting-annotations` | error | Annotations do not contradict each other. |
 | `heavy-tool` | warning | No single tool costs more than about 800 tokens of context. |
 | `heavy-server` | warning | The whole tool list stays under about 10,000 tokens. |
@@ -80,7 +82,7 @@ Or install it once, which gives you the `mcpmedic` command:
 npm install -g @jmozez/mcpmedic
 ```
 
-The package is scoped because npm keeps the plain name for a similar existing package. The command is still `mcpmedic`. Version 0.0.0 on npm is only a placeholder. Until the first release, build from source:
+The package is scoped because npm keeps the plain name for a similar existing package. The command is still `mcpmedic`. To build from source:
 
 ```bash
 git clone https://github.com/jmozez/mcpmedic.git
@@ -106,13 +108,12 @@ mcpmedic check --file tools.json
 Example output:
 
 ```text
-mcpmedic 0.1.0-dev: MCP server
+mcpmedic 0.1.0: MCP server
 4 tools, about 171 tokens of context
 
-  error  duplicate-name         search: More than one tool is called "search".
-                                fix: Give each tool a unique name.
-  error  missing-description    Search: The tool has no description, so the model has to guess when to use it.
-                                fix: Say what the tool does, when to use it and what it returns, in one or two sentences.
+  error  duplicate-name           search: More than one tool is called "search".
+                                  fix: Give each tool a unique name.
+  error  name-format              do stuff!: The name "do stuff!" will be rejected or renamed by some hosts.
 ...
 ```
 
@@ -170,20 +171,23 @@ The HTML report is one self-contained page with no scripts, so you can attach it
 --rule <id>            run only this check (repeatable)
 --header "Name: value" add an HTTP header (repeatable), for example an Authorization header
 --env KEY=value        set an environment variable for a stdio server (repeatable)
---timeout <seconds>    give up after this long (default 30)
+--inherit-env          pass all of mcpmedic's environment to a stdio server (default: a minimal set, like MCP hosts)
+--timeout <seconds>    give up after this long, 1 to 3600 (default 30)
 ```
 
-Exit codes: 0 means no findings at or above `--fail-on`, 1 means there were, 2 means mcpmedic could not run (bad options or no connection).
+Exit codes: 0 means no findings at or above `--fail-on`, 1 means there were, 2 means mcpmedic could not run (bad options, an unknown rule or host, no connection, or a server that stopped answering).
+
+A stdio server gets a minimal environment (such as `PATH` and `HOME`) plus any `--env` values, as MCP hosts do. Your model API keys and CI tokens do not reach it. If your server needs more, pass it with `--env`, or use `--inherit-env`.
 
 ## GitHub Action
 
 ```yaml
-- uses: actions/checkout@v4
-- uses: actions/setup-node@v4
+- uses: actions/checkout@v7
+- uses: actions/setup-node@v7
   with:
     node-version: 22
 - run: npm ci && npm run build
-- uses: jmozez/mcpmedic@main
+- uses: jmozez/mcpmedic@v0
   id: medic
   with:
     command: node dist/server.js
@@ -192,17 +196,19 @@ Exit codes: 0 means no findings at or above `--fail-on`, 1 means there were, 2 m
 - run: echo "Score ${{ steps.medic.outputs.score }}"
 ```
 
-Inputs: `command`, `url` or `file` (pick one), `fail-on`, `probe`, `host` (comma-separated, or `none`), `html`, `badge` and `args` for any other options. The action writes a job summary and an HTML report, and outputs `score` and `report`. Pin a tag instead of `main` once there is a release.
+Inputs: `command`, `url` or `file` (pick one), `fail-on`, `probe`, `host` (comma-separated, or `none`), `html`, `badge` and `args` for any other options. The action writes a job summary and an HTML report, and outputs `score` and `report`. `@v0` follows the latest 0.x release. Pin `@v0.1.0` or a commit SHA for a fixed version.
+
+The action passes inputs to its script only as environment variables, splits `command` and `args` on spaces without glob expansion, and escapes server text in the job summary. If your server needs a secret, set it in the step's `env` and add `args: --inherit-env`, or use `args: --env NAME=value`.
 
 To see findings in the Security tab and on pull requests, write SARIF and upload it (the job needs `security-events: write`):
 
 ```yaml
-- uses: jmozez/mcpmedic@main
+- uses: jmozez/mcpmedic@v0
   with:
     file: tools.json
     sarif: mcpmedic.sarif
     fail-on: never
-- uses: github/codeql-action/upload-sarif@v3
+- uses: github/codeql-action/upload-sarif@v4
   with:
     sarif_file: mcpmedic.sarif
 ```
@@ -279,16 +285,13 @@ console.log(report.summary.score);
 
 Each tool starts at 100. Every error costs 10 points and every warning 3, averaged over the number of tools. Notes cost nothing. The token figures use about 4 characters per token, which is close enough to compare tools but differs a little between models.
 
-## Roadmap
+## Security
 
-1. **Week 1 (done):** CLI, connections (stdio, Streamable HTTP, SSE, file), static checks, token cost, text and JSON reports, CI.
-2. **Week 2 (done):** live probes that call each tool with valid generated input, checks that errors are useful and responses fit host size limits, an open rule pack for each host (Claude, ChatGPT, Cursor, VS Code, Codex, Gemini CLI) with a source link per rule, an HTML report, a GitHub Action and a badge.
-3. **Week 3 (done):** tool-choice evals that run on your own model key or a local model, with repeat runs to measure consistency.
-4. **Week 4 (done, release pending):** fix mode that rewrites weak descriptions and keeps only changes that improve the eval score, SARIF output, and the first public release.
+mcpmedic treats every server as untrusted. Server text cannot inject terminal escapes, HTML or Markdown into its output. API keys stay out of reports and away from stdio servers, and stalled servers fail instead of passing. See [SECURITY.md](SECURITY.md) for the threat model and how to report a vulnerability privately.
 
 ## Contributing
 
-Issues and pull requests are welcome. Run `npm test` before you open a pull request. New checks go in `src/rules/index.ts` with a test in `test/rules.test.ts`.
+Issues and pull requests are welcome. Run `npm run build && npm test` before you open a pull request, and `npm run coverage` to see what the tests miss. New checks go in `src/rules/index.ts` with a test in `test/rules.test.ts`.
 
 ## Licence
 
