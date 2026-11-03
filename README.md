@@ -137,6 +137,7 @@ The HTML report is one self-contained page with no scripts, so you can attach it
 --json                 print the report as JSON
 --html <file>          also write the report as a single HTML page
 --badge <file>         also write a shields.io endpoint badge with the score
+--sarif <file>         also write SARIF 2.1.0 for GitHub code scanning
 --fail-on <level>      exit with code 1 at this level or above: error (default), warning, info, never
 --rule <id>            run only this check (repeatable)
 --header "Name: value" add an HTTP header (repeatable), for example an Authorization header
@@ -164,6 +165,21 @@ Exit codes: 0 means no findings at or above `--fail-on`, 1 means there were, 2 m
 ```
 
 Inputs: `command`, `url` or `file` (pick one), `fail-on`, `probe`, `host` (comma-separated, or `none`), `html`, `badge` and `args` for any other options. The action writes a job summary and an HTML report, and outputs `score` and `report`. Pin a tag instead of `main` once there is a release.
+
+To see findings in the Security tab and on pull requests, write SARIF and upload it (the job needs `security-events: write`):
+
+```yaml
+- uses: jmozez/mcpmedic@main
+  with:
+    file: tools.json
+    sarif: mcpmedic.sarif
+    fail-on: never
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: mcpmedic.sarif
+```
+
+Results point at the `--file` path when you check a saved tool list, and name the tool in each result.
 
 Without the action, in any CI:
 
