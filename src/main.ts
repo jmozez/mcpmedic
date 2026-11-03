@@ -8,6 +8,7 @@ import { buildReport, formatText } from "./report.js";
 import { badgeJson, formatHtml } from "./html.js";
 import { formatSarif } from "./sarif.js";
 import { writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { Severity } from "./types.js";
 import { makeProvider } from "./providers.js";
 import { formatEval, loadSuite, runEval } from "./eval.js";
@@ -181,6 +182,7 @@ export async function main(argv: string[]): Promise<number> {
       suite = loadSuite(values.cases);
     } catch (e) { console.error((e as Error).message); return 2; }
     if (values.write && !values.file) { console.error("--write needs --file, so there is a tools file to copy."); return 2; }
+    if (values.write && values.file && resolve(values.write) === resolve(values.file)) { console.error("--write must name a new file. mcpmedic never overwrites your tools file."); return 2; }
     const snap = await snapshot(target, timeoutMs);
     if (cmd === "fix") {
       const maxTools = Number(values["max-tools"]);
