@@ -11,3 +11,4 @@ export { makeProvider, openAICompatible, anthropic, mock, type Provider, type Ch
 export { runEval, parseSuite, loadSuite, formatEval, isCorrect, type EvalCase, type EvalSuite, type EvalResult, type CaseResult } from "./eval.js";
 export { formatSarif, type SarifOptions } from "./sarif.js";
 export { runFix, formatFix, candidates, patchToolsFile, type FixResult, type Suggestion, type FixOptions } from "./fix.js";
+export { printable } from "./sanitize.js";

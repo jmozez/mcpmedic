@@ -69,6 +69,8 @@ runs:
         CLI: ${{ github.action_path }}/dist/cli.js
       run: |
         set -euo pipefail
+        # No pathname expansion: the args and command inputs are split on spaces, never globbed.
+        set -f
         opts=(--fail-on never --json --html "$IN_HTML")
         [ -n "$IN_BADGE" ] && opts+=(--badge "$IN_BADGE")
         [ -n "$IN_SARIF" ] && opts+=(--sarif "$IN_SARIF")
@@ -88,9 +90,11 @@ runs:
         echo "score=$score" >> "$GITHUB_OUTPUT"
         node -e '
           const r = require(process.argv[1]); const s = r.summary;
+          // Server-controlled text: escape Markdown and HTML so it cannot add links, images or layout to the summary.
+          const md = (x) => String(x).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/[\\`*_{}\[\]()<>#+!|~]/g, (c) => "&#" + c.charCodeAt(0) + ";").slice(0, 500);
           const lines = ["## mcpmedic: " + s.score + "/100", "", s.tools + " tools, about " + s.tokens + " tokens. " + s.errors + " errors, " + s.warnings + " warnings, " + s.infos + " notes.", ""];
           if (r.findings.length) { lines.push("| Level | Check | Tool | Finding |", "| --- | --- | --- | --- |");
-            for (const f of r.findings.slice(0, 50)) lines.push("| " + [f.severity, f.rule, f.tool || "", f.message].map(x => String(x).replace(/\|/g, "\\|")).join(" | ") + " |"); }
+            for (const f of r.findings.slice(0, 50)) lines.push("| " + [f.severity, f.rule, f.tool || "", f.message].map(md).join(" | ") + " |"); }
           require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
           const order = ["info", "warning", "error"]; const min = order.indexOf(process.argv[2]);
           if (min >= 0 && r.findings.some(f => order.indexOf(f.severity) >= min)) { console.log("::error::mcpmedic found problems at " + process.argv[2] + " level or above. See the job summary."); process.exit(1); }

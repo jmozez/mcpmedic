@@ -1,7 +1,8 @@
+import { printable } from "./sanitize.js";
 import type { Report } from "./report.js";
 import type { Severity } from "./types.js";
 
-const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const esc = (s: unknown) => printable(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const COLOUR: Record<Severity, string> = { error: "#c62828", warning: "#b26a00", info: "#1565c0" };
 
 /** A single self-contained HTML page with no scripts or outside requests. */
