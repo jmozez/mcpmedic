@@ -66,6 +66,7 @@ describe("option validation", () => {
     ["an unknown --rule", ["check", "--rule", "nope", "--file", F]],
     ["an unknown --host", ["check", "--host", "nope", "--file", F]],
     ["a stray argument", ["check", "stray", "--file", F]],
+    ["--write onto the --file", ["fix", "--cases", "test/fixtures/cases.yaml", "--model", "mock", "--file", "test/fixtures/eval-tools.json", "--write", "./test/fixtures/eval-tools.json"]],
     ["a bad --max-tools", ["fix", "--cases", "test/fixtures/cases.yaml", "--model", "mock", "--max-tools", "abc", "--file", "test/fixtures/eval-tools.json"]],
   ] as const) {
     it(`exits 2 for ${label}`, async () => {
