@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StdioClientTransport, getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import type { ServerSnapshot, ToolDefinition } from "./types.js";
 
 export type Target =
-  | { kind: "stdio"; command: string; args: string[]; env?: Record<string, string> }
+  | { kind: "stdio"; command: string; args: string[]; env?: Record<string, string>; inheritEnv?: boolean }
   | { kind: "http"; url: string; headers?: Record<string, string> }
   | { kind: "file"; path: string };
 
@@ -73,7 +73,9 @@ export async function openSession(target: Exclude<Target, { kind: "file" }>, tim
     const transport = new StdioClientTransport({
       command: target.command,
       args: target.args,
-      env: { ...(process.env as Record<string, string>), ...target.env },
+      // Like MCP hosts, give the server a minimal environment plus what --env passes, so model API keys
+      // and CI tokens in mcpmedic's own environment do not reach the server unless asked (--inherit-env).
+      env: { ...(target.inheritEnv ? (process.env as Record<string, string>) : getDefaultEnvironment()), ...target.env },
       stderr: "pipe",
     });
     // Drain the server's stderr. An unread pipe fills up and blocks a chatty server.
