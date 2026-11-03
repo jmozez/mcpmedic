@@ -4,8 +4,16 @@ All notable changes to mcpmedic are listed here. The format follows Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- The npm package is now `@jmozez/mcpmedic`. The command is still `mcpmedic`.
+
 ### Added
 
+- Live probes with `--probe`, `--probe-all` and `--probe-tool`: valid and invalid calls, timeouts, crashes, unhelpful errors, large responses and output schema checks.
+- An open host rule pack in `hosts/hosts.yaml` with a source for every rule, `--host`, `--server-name` and `mcpmedic hosts`.
+- `--html` for a self-contained HTML report and `--badge` for a shields.io endpoint badge.
+- A GitHub Action with a job summary and a score output.
 - `mcpmedic check` connects to a server and reads every tool from `tools/list`, following pagination.
   - Local servers over stdio: `mcpmedic check -- <command> [args...]`, with `--env KEY=value`.
   - Remote servers over Streamable HTTP, falling back to the older HTTP+SSE transport: `--url`, with `--header`.
