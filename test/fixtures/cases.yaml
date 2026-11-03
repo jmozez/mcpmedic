@@ -1,0 +1,11 @@
+# Cases for test/fixtures/eval-tools.json, run with the mock model in tests.
+system: You help with weather and email.
+cases:
+  - prompt: What is the weather forecast for Wellington this week?
+    expect: get_forecast
+  - prompt: Send an email to Aroha saying I am running late
+    expect: send_email
+  - prompt: Find the phone number for the Auckland office
+    expect: lookup
+  - prompt: Tell me a joke
+    expect: none

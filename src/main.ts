@@ -8,6 +8,8 @@ import { buildReport, formatText } from "./report.js";
 import { badgeJson, formatHtml } from "./html.js";
 import { writeFileSync } from "node:fs";
 import type { Severity } from "./types.js";
+import { makeProvider } from "./providers.js";
+import { formatEval, loadSuite, runEval } from "./eval.js";
 
 const require = createRequire(import.meta.url);
 const VERSION: string = require("../package.json").version;
@@ -18,6 +20,8 @@ Usage
   mcpmedic check -- <command> [args...]   start a local (stdio) server and check it
   mcpmedic check --url <url>              check a remote (Streamable HTTP or SSE) server
   mcpmedic check --file <tools.json>      check a saved tools/list result
+  mcpmedic eval --cases <file> --model <provider:model> [target]
+                                          check that a model picks the right tool for each prompt
   mcpmedic rules                          list every check
   mcpmedic hosts                          list the host rules and their sources
 
@@ -35,6 +39,14 @@ Options
   --header "Name: value" add an HTTP header (repeatable), for example an Authorization header
   --env KEY=value        set an environment variable for a stdio server (repeatable)
   --timeout <seconds>    give up after this long (default 30)
+
+Eval options
+  --cases <file>         YAML or JSON list of { prompt, expect } cases
+  --model <spec>         openai:<model>, anthropic:<model>, openrouter:<model>, ollama:<model>,
+                         compatible:<model> (uses MCPMEDIC_BASE_URL) or mock. Keys come from env vars.
+  --repeat <n>           run each case this many times to measure consistency (default 3)
+  --min-accuracy <pct>   exit with code 1 below this accuracy (default 0, never fail)
+
   -h, --help             show this help
   -v, --version          show the version
 `;
@@ -65,6 +77,10 @@ export async function main(argv: string[]): Promise<number> {
       header: { type: "string", multiple: true },
       env: { type: "string", multiple: true },
       timeout: { type: "string", default: "30" },
+      cases: { type: "string" },
+      model: { type: "string" },
+      repeat: { type: "string", default: "3" },
+      "min-accuracy": { type: "string", default: "0" },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", short: "v", default: false },
     },
@@ -91,7 +107,7 @@ export async function main(argv: string[]): Promise<number> {
     }
     return 0;
   }
-  if (cmd !== "check") { console.error(`Unknown command "${cmd}". Run mcpmedic --help.`); return 2; }
+  if (cmd !== "check" && cmd !== "eval") { console.error(`Unknown command "${cmd}". Run mcpmedic --help.`); return 2; }
 
   const failOn = values["fail-on"]!;
   if (![...ORDER, "never"].includes(failOn)) { console.error(`--fail-on must be error, warning, info or never.`); return 2; }
@@ -117,6 +133,21 @@ export async function main(argv: string[]): Promise<number> {
   } else { console.error("Tell mcpmedic what to check: -- <command>, --url or --file."); return 2; }
 
   const timeoutMs = Number(values.timeout) * 1000;
+  if (cmd === "eval") {
+    if (!values.cases || !values.model) { console.error("eval needs --cases <file> and --model <provider:model>."); return 2; }
+    const repeat = Number(values.repeat);
+    const min = Number(values["min-accuracy"]);
+    if (!Number.isInteger(repeat) || repeat < 1 || repeat > 50) { console.error("--repeat must be a whole number from 1 to 50."); return 2; }
+    if (!(min >= 0 && min <= 100)) { console.error("--min-accuracy must be a percentage from 0 to 100."); return 2; }
+    let provider, suite;
+    try { provider = makeProvider(values.model, { timeoutMs }); suite = loadSuite(values.cases); }
+    catch (e) { console.error((e as Error).message); return 2; }
+    const snap = await snapshot(target, timeoutMs);
+    const result = await runEval(provider, snap.tools, suite, { repeat });
+    console.log(values.json ? JSON.stringify(result, null, 2) : formatEval(result));
+    if (result.summary.errors === result.summary.runs) return 2;
+    return result.summary.accuracy * 100 < min ? 1 : 0;
+  }
   const probing = values.probe || values["probe-all"] || Boolean(values["probe-tool"]?.length);
   let snap;
   if (probing) {
