@@ -10,3 +10,4 @@ export { loadHostPack, hostRules, type HostPack, type HostRule } from "./hosts.j
 export { makeProvider, openAICompatible, anthropic, mock, type Provider, type Choice, type ChooseRequest, type ProviderOptions } from "./providers.js";
 export { runEval, parseSuite, loadSuite, formatEval, isCorrect, type EvalCase, type EvalSuite, type EvalResult, type CaseResult } from "./eval.js";
 export { formatSarif, type SarifOptions } from "./sarif.js";
+export { runFix, formatFix, candidates, patchToolsFile, type FixResult, type Suggestion, type FixOptions } from "./fix.js";

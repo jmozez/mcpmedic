@@ -11,6 +11,8 @@ import { writeFileSync } from "node:fs";
 import type { Severity } from "./types.js";
 import { makeProvider } from "./providers.js";
 import { formatEval, loadSuite, runEval } from "./eval.js";
+import { formatFix, patchToolsFile, runFix } from "./fix.js";
+import { readFileSync } from "node:fs";
 
 const require = createRequire(import.meta.url);
 const VERSION: string = require("../package.json").version;
@@ -23,6 +25,8 @@ Usage
   mcpmedic check --file <tools.json>      check a saved tools/list result
   mcpmedic eval --cases <file> --model <provider:model> [target]
                                           check that a model picks the right tool for each prompt
+  mcpmedic fix --cases <file> --model <provider:model> [target]
+                                          rewrite weak descriptions, keeping only those that raise eval accuracy
   mcpmedic rules                          list every check
   mcpmedic hosts                          list the host rules and their sources
 
@@ -48,6 +52,12 @@ Eval options
                          compatible:<model> (uses MCPMEDIC_BASE_URL) or mock. Keys come from env vars.
   --repeat <n>           run each case this many times to measure consistency (default 3)
   --min-accuracy <pct>   exit with code 1 below this accuracy (default 0, never fail)
+
+Fix options (and the eval options above)
+  --rewrite-model <spec> model that writes the new descriptions (default: the --model)
+  --max-tools <n>        rewrite at most this many tools (default 10)
+  --out <file>           write the kept suggestions as JSON
+  --write <file>         with --file, write a copy of the tools file with the new descriptions
 
   -h, --help             show this help
   -v, --version          show the version
@@ -84,6 +94,10 @@ export async function main(argv: string[]): Promise<number> {
       model: { type: "string" },
       repeat: { type: "string", default: "3" },
       "min-accuracy": { type: "string", default: "0" },
+      "rewrite-model": { type: "string" },
+      "max-tools": { type: "string", default: "10" },
+      out: { type: "string" },
+      write: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", short: "v", default: false },
     },
@@ -110,7 +124,7 @@ export async function main(argv: string[]): Promise<number> {
     }
     return 0;
   }
-  if (cmd !== "check" && cmd !== "eval") { console.error(`Unknown command "${cmd}". Run mcpmedic --help.`); return 2; }
+  if (!["check", "eval", "fix"].includes(cmd)) { console.error(`Unknown command "${cmd}". Run mcpmedic --help.`); return 2; }
 
   const failOn = values["fail-on"]!;
   if (![...ORDER, "never"].includes(failOn)) { console.error(`--fail-on must be error, warning, info or never.`); return 2; }
@@ -136,16 +150,30 @@ export async function main(argv: string[]): Promise<number> {
   } else { console.error("Tell mcpmedic what to check: -- <command>, --url or --file."); return 2; }
 
   const timeoutMs = Number(values.timeout) * 1000;
-  if (cmd === "eval") {
-    if (!values.cases || !values.model) { console.error("eval needs --cases <file> and --model <provider:model>."); return 2; }
+  if (cmd === "eval" || cmd === "fix") {
+    if (!values.cases || !values.model) { console.error(cmd + " needs --cases <file> and --model <provider:model>."); return 2; }
     const repeat = Number(values.repeat);
     const min = Number(values["min-accuracy"]);
     if (!Number.isInteger(repeat) || repeat < 1 || repeat > 50) { console.error("--repeat must be a whole number from 1 to 50."); return 2; }
     if (!(min >= 0 && min <= 100)) { console.error("--min-accuracy must be a percentage from 0 to 100."); return 2; }
-    let provider, suite;
-    try { provider = makeProvider(values.model, { timeoutMs }); suite = loadSuite(values.cases); }
-    catch (e) { console.error((e as Error).message); return 2; }
+    let provider, rewriter, suite;
+    try {
+      provider = makeProvider(values.model, { timeoutMs });
+      rewriter = values["rewrite-model"] ? makeProvider(values["rewrite-model"], { timeoutMs, temperature: 0.3 }) : provider;
+      suite = loadSuite(values.cases);
+    } catch (e) { console.error((e as Error).message); return 2; }
+    if (values.write && !values.file) { console.error("--write needs --file, so there is a tools file to copy."); return 2; }
     const snap = await snapshot(target, timeoutMs);
+    if (cmd === "fix") {
+      const maxTools = Number(values["max-tools"]);
+      const quiet = values.json || !process.stderr.isTTY;
+      const r = await runFix(provider, rewriter, snap.tools, suite, { repeat, maxTools, onStep: quiet ? undefined : (m) => process.stderr.write(`  ${m}...\n`) });
+      if (r.baseline.summary.errors === r.baseline.summary.runs) { console.error("Every eval run failed. Check the model name and key."); return 2; }
+      if (values.out) writeFileSync(values.out, JSON.stringify({ model: r.model, rewriter: r.rewriter, from: r.baseline.summary.accuracy, to: r.final.summary.accuracy, suggestions: r.kept }, null, 2) + "\n");
+      if (values.write && values.file) writeFileSync(values.write, patchToolsFile(readFileSync(values.file, "utf8"), r.kept));
+      console.log(values.json ? JSON.stringify({ ...r, tools: undefined }, null, 2) : formatFix(r));
+      return r.final.summary.accuracy * 100 < min ? 1 : 0;
+    }
     const result = await runEval(provider, snap.tools, suite, { repeat });
     console.log(values.json ? JSON.stringify(result, null, 2) : formatEval(result));
     if (result.summary.errors === result.summary.runs) return 2;
