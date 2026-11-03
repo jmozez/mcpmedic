@@ -1,5 +1,5 @@
 {
-  "name": "mcpmedic",
+  "name": "@jmozez/mcpmedic",
   "version": "0.1.0-dev",
   "description": "Check your MCP server before your users do. Lints tool definitions and reports problems, token cost and fixes.",
   "type": "module",

@@ -38,28 +38,41 @@ mcpmedic connects to your server, reads its tools, and tells you in plain langua
 
 Levels: **error** will break or confuse hosts, **warning** will likely hurt tool choice or cost, **info** is good practice.
 
-## Try it
+## Install
 
-Until the first release, run it from source. You need Node.js 20 or newer.
+You need Node.js 20 or newer. Run it without installing:
+
+```bash
+npx @jmozez/mcpmedic check -- npx -y @modelcontextprotocol/server-everything
+```
+
+Or install it once, which gives you the `mcpmedic` command:
+
+```bash
+npm install -g @jmozez/mcpmedic
+```
+
+The package is scoped because npm keeps the plain name for a similar existing package. The command is still `mcpmedic`. Version 0.0.0 on npm is only a placeholder. Until the first release, build from source:
 
 ```bash
 git clone https://github.com/jmozez/mcpmedic.git
 cd mcpmedic
 npm install
 npm run build
+node dist/cli.js --help
 ```
 
-Then point it at a server:
+## Use it
 
 ```bash
 # A local server that runs over stdio (everything after -- is the server's command)
-node dist/cli.js check -- npx -y @modelcontextprotocol/server-everything
+mcpmedic check -- node dist/server.js
 
 # A remote server over Streamable HTTP (falls back to the older SSE transport)
-node dist/cli.js check --url https://example.com/mcp --header "Authorization: Bearer $TOKEN"
+mcpmedic check --url https://example.com/mcp --header "Authorization: Bearer $TOKEN"
 
 # A saved tools/list result
-node dist/cli.js check --file tools.json
+mcpmedic check --file tools.json
 ```
 
 Example output:
@@ -70,42 +83,98 @@ mcpmedic 0.1.0-dev: MCP server
 
   error  duplicate-name         search: More than one tool is called "search".
                                 fix: Give each tool a unique name.
-  error  name-format            do stuff!: The name "do stuff!" will be rejected or renamed by some hosts.
-                                fix: Use only A to Z, 0 to 9, underscore, dot or hyphen, up to 64 characters, for example get_weather.
   error  missing-description    Search: The tool has no description, so the model has to guess when to use it.
                                 fix: Say what the tool does, when to use it and what it returns, in one or two sentences.
 ...
 ```
 
+## Live probes
+
+`--probe` calls each tool marked `readOnlyHint` with sample input built from its schema (constants, defaults, examples, enums, formats and ranges). Then it sends an empty call to each tool with required arguments. It reports:
+
+- calls that time out or crash the server
+- valid input that is rejected
+- invalid input that is accepted, or rejected with an error that does not say what was wrong
+- responses over about 10,000 tokens
+- structured output that does not match the tool's `outputSchema`
+- tools it skipped, so you know what was not tested
+
+`--probe-all` also calls tools that are not marked read-only. Only use it on a test server, because those tools may change data. `--probe-tool <name>` probes just one tool. Probes need a live server, so they do not work with `--file`.
+
+## Host rules
+
+Each host that runs MCP servers has its own limits, such as how long a tool name can be or how many tools it will load. mcpmedic checks these from an open rule pack in [`hosts/hosts.yaml`](hosts/hosts.yaml). Every rule links to the host's own documentation, with a quote and the date it was checked. The pack covers the Claude API, Claude Code, Codex, the OpenAI API, the Gemini API and VS Code.
+
+```bash
+mcpmedic hosts                          # list every rule and its source
+mcpmedic check --host claude-code -- node server.js
+mcpmedic check --host none -- node server.js
+mcpmedic check --server-name myserver -- node server.js   # checks prefixed names such as mcp__myserver__tool
+```
+
+Host findings start with `[host]` and do not change the score, because they depend on where you use the server. If a rule is wrong or out of date, please open an issue with a link to the source.
+
+## HTML report and badge
+
+```bash
+mcpmedic check --html report.html --badge badge.json -- node server.js
+```
+
+The HTML report is one self-contained page with no scripts, so you can attach it to a pull request or publish it. The badge file is a [shields.io endpoint](https://shields.io/badges/endpoint-badge). Commit it or publish it somewhere, then add:
+
+```markdown
+![mcpmedic](https://img.shields.io/endpoint?url=https://example.com/badge.json)
+```
+
 ## Options
 
 ```text
-Options
-  --json                 print the report as JSON
-  --fail-on <level>      exit with code 1 at this level or above: error (default), warning, info, never
-  --rule <id>            run only this check (repeatable)
-  --header "Name: value" add an HTTP header (repeatable), for example an Authorization header
-  --env KEY=value        set an environment variable for a stdio server (repeatable)
-  --timeout <seconds>    give up after this long (default 30)
-  -h, --help             show this help
-  -v, --version          show the version
+--probe                call each read-only tool with sample input and check the answers
+--probe-all            also call tools not marked read-only (only use on a test server)
+--probe-tool <name>    probe only this tool (repeatable)
+--host <id>            check only this host's rules (repeatable), or "none" to skip them
+--server-name <name>   the name users give the server in their config (for prefixed tool names)
+--json                 print the report as JSON
+--html <file>          also write the report as a single HTML page
+--badge <file>         also write a shields.io endpoint badge with the score
+--fail-on <level>      exit with code 1 at this level or above: error (default), warning, info, never
+--rule <id>            run only this check (repeatable)
+--header "Name: value" add an HTTP header (repeatable), for example an Authorization header
+--env KEY=value        set an environment variable for a stdio server (repeatable)
+--timeout <seconds>    give up after this long (default 30)
 ```
 
 Exit codes: 0 means no findings at or above `--fail-on`, 1 means there were, 2 means mcpmedic could not run (bad options or no connection).
 
-## Use it in CI
+## GitHub Action
 
 ```yaml
+- uses: actions/checkout@v4
+- uses: actions/setup-node@v4
+  with:
+    node-version: 22
 - run: npm ci && npm run build
-- run: npx --yes github:jmozez/mcpmedic check --fail-on error -- node dist/server.js
+- uses: jmozez/mcpmedic@main
+  id: medic
+  with:
+    command: node dist/server.js
+    probe: "true"
+    fail-on: error
+- run: echo "Score ${{ steps.medic.outputs.score }}"
 ```
 
-A ready-made GitHub Action and a score badge are planned for week 2.
+Inputs: `command`, `url` or `file` (pick one), `fail-on`, `probe`, `host` (comma-separated, or `none`), `html`, `badge` and `args` for any other options. The action writes a job summary and an HTML report, and outputs `score` and `report`. Pin a tag instead of `main` once there is a release.
+
+Without the action, in any CI:
+
+```yaml
+- run: npx --yes @jmozez/mcpmedic check --fail-on error -- node dist/server.js
+```
 
 ## Use it as a library
 
 ```ts
-import { snapshot, runRules, buildReport } from "mcpmedic";
+import { snapshot, runRules, buildReport } from "@jmozez/mcpmedic";
 
 const snap = await snapshot({ kind: "stdio", command: "node", args: ["server.js"] });
 const report = buildReport(snap, runRules(snap), "0.1.0");
@@ -119,7 +188,7 @@ Each tool starts at 100. Every error costs 10 points and every warning 3, averag
 ## Roadmap
 
 1. **Week 1 (done):** CLI, connections (stdio, Streamable HTTP, SSE, file), static checks, token cost, text and JSON reports, CI.
-2. **Week 2:** live probes that call each tool with valid generated input, checks that errors are useful and responses fit host size limits, an open rule pack for each host (Claude, ChatGPT, Cursor, VS Code, Codex, Gemini CLI) with a source link per rule, an HTML report, a GitHub Action and a badge.
+2. **Week 2 (done):** live probes that call each tool with valid generated input, checks that errors are useful and responses fit host size limits, an open rule pack for each host (Claude, ChatGPT, Cursor, VS Code, Codex, Gemini CLI) with a source link per rule, an HTML report, a GitHub Action and a badge.
 3. **Week 3:** tool-choice evals that run on your own model key or a local model, with repeat runs to measure consistency.
 4. **Week 4:** fix mode that rewrites weak descriptions and keeps only changes that improve the eval score, SARIF output, and the first public release.
 
