@@ -6,6 +6,7 @@ import { hostRules, loadHostPack } from "./hosts.js";
 import { rules, runRules } from "./rules/index.js";
 import { buildReport, formatText } from "./report.js";
 import { badgeJson, formatHtml } from "./html.js";
+import { formatSarif } from "./sarif.js";
 import { writeFileSync } from "node:fs";
 import type { Severity } from "./types.js";
 import { makeProvider } from "./providers.js";
@@ -34,6 +35,7 @@ Options
   --json                 print the report as JSON
   --html <file>          also write the report as a single HTML page
   --badge <file>         also write a shields.io endpoint badge with the score
+  --sarif <file>         also write SARIF 2.1.0 for GitHub code scanning
   --fail-on <level>      exit with code 1 at this level or above: error (default), warning, info, never
   --rule <id>            run only this check (repeatable)
   --header "Name: value" add an HTTP header (repeatable), for example an Authorization header
@@ -67,6 +69,7 @@ export async function main(argv: string[]): Promise<number> {
       json: { type: "boolean", default: false },
       html: { type: "string" },
       badge: { type: "string" },
+      sarif: { type: "string" },
       host: { type: "string", multiple: true },
       "server-name": { type: "string" },
       probe: { type: "boolean", default: false },
@@ -171,6 +174,7 @@ export async function main(argv: string[]): Promise<number> {
   const report = buildReport(snap, runRules(snap, values.rule, extra), VERSION);
   report.hostPack = extra.length ? pack.version : undefined;
   if (values.html) writeFileSync(values.html, formatHtml(report));
+  if (values.sarif) writeFileSync(values.sarif, formatSarif(report, { uri: values.file }));
   if (values.badge) writeFileSync(values.badge, badgeJson(report));
   console.log(values.json ? JSON.stringify(report, null, 2) : formatText(report, process.stdout.isTTY));
 
