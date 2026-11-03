@@ -14,6 +14,7 @@ All notable changes to mcpmedic are listed here. The format follows Keep a Chang
 - An open host rule pack in `hosts/hosts.yaml` with a source for every rule, `--host`, `--server-name` and `mcpmedic hosts`.
 - `--html` for a self-contained HTML report and `--badge` for a shields.io endpoint badge.
 - A GitHub Action with a job summary and a score output.
+- `mcpmedic fix`: rewrites weak descriptions with a model and keeps only changes that raise eval accuracy, with `--out` suggestions and a `--write` copy of the tools file.
 - `--sarif <file>` writes SARIF 2.1.0 for GitHub code scanning, and the Action has a `sarif` input.
 - `mcpmedic eval`: tool-choice evals from a YAML cases file, with repeat runs for accuracy and consistency, on OpenAI, Anthropic, OpenRouter, Ollama, any OpenAI-compatible server, or an offline mock.
 - `mcpmedic check` connects to a server and reads every tool from `tools/list`, following pagination.

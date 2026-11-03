@@ -221,6 +221,22 @@ mcpmedic eval --cases cases.yaml --model ollama:llama3.1 --repeat 5 --file tools
 
 The report marks each case pass, flaky or FAIL, and lists the most common mix-ups. `--min-accuracy 90` exits with code 1 below 90%, and `--json` gives the full results. Calls use temperature 0. Evals send your tool definitions and prompts to the model you choose, so use a local model if they are private. mcpmedic never calls the tools themselves during an eval.
 
+## Fix mode
+
+`mcpmedic fix` takes the same options as `eval`. It runs a baseline eval, then picks the tools that caused failures or have weak descriptions. It asks a model to rewrite one description at a time and runs the eval again. A rewrite is kept only if accuracy goes up, so the result is never worse than where you started.
+
+```bash
+mcpmedic fix --cases cases.yaml --model openai:gpt-4o-mini --file tools.json --out suggestions.json --write tools.fixed.json
+mcpmedic fix --cases cases.yaml --model ollama:llama3.1 --rewrite-model anthropic:claude-sonnet-4-5 -- node dist/server.js
+```
+
+- `--rewrite-model` uses a different model to write descriptions than the one that judges them.
+- `--max-tools <n>` limits how many tools are rewritten (default 10).
+- `--out` writes the kept changes as JSON, with each before and after description and the accuracy change.
+- `--write`, used with `--file`, writes a copy of the tools file with the new descriptions. Compare it with `git diff --no-index tools.json tools.fixed.json`, then copy the descriptions you want into your server's code.
+
+mcpmedic never edits your server. Review each suggestion yourself, and keep some prompts out of your cases file to check the result. Otherwise the descriptions may fit your test prompts and not real users.
+
 ## Use it as a library
 
 ```ts
