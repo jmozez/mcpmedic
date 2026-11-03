@@ -7,7 +7,7 @@ branding:
 
 inputs:
   command:
-    description: Command that starts a stdio server, for example "node dist/server.js". Use this, url or file.
+    description: Command that starts a stdio server, for example "node dist/server.js", split on spaces. Use this, url or file.
     required: false
   url:
     description: URL of a Streamable HTTP or SSE server.
@@ -25,7 +25,7 @@ inputs:
     description: Comma-separated host ids to check (see mcpmedic hosts), or "none". Empty checks every host.
     default: ""
   args:
-    description: Any other mcpmedic options, added as they are.
+    description: Any other mcpmedic options, split on spaces (no quotes or glob expansion), for example "--inherit-env --timeout 60".
     default: ""
   html:
     description: Where to write the HTML report.

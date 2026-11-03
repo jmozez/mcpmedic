@@ -4,7 +4,26 @@ All notable changes to mcpmedic are listed here. The format follows Keep a Chang
 
 ## [Unreleased]
 
-Planned as 0.1.0, the first public release.
+## [0.1.0] - 2026-11-03
+
+The first public release.
+
+### Security
+
+- Stdio servers get a minimal environment plus `--env` values, so model API keys and CI tokens no longer reach them. `--inherit-env` restores the full environment.
+- Control characters, bidi overrides and zero-width characters from servers or models are shown as visible `\u` escapes in text, eval, fix and HTML output, so a server cannot inject terminal escapes.
+- New `suspicious-instructions` and `hidden-characters` checks catch tool poisoning in descriptions.
+- Fix mode wraps server text in a data block for the rewriting model, and drops rewrites that look injected or run over 600 characters.
+- The Action escapes server text in the job summary and turns off glob expansion when it splits `command` and `args`.
+- SECURITY.md, CodeQL, Dependabot, and workflow actions pinned to commit SHAs.
+
+### Fixed
+
+- A server that flooded stderr or stalled could make mcpmedic exit 0 with no output. It now drains stderr, keeps its timeout alive, and exits 2 if it stops early.
+- `--timeout`, `--rule`, `--host` and `--max-tools` are validated before a server starts. An unknown `--rule` used to run nothing and score 100.
+- Stray arguments before `--` are reported instead of ignored.
+- `fix --write` refuses to overwrite the `--file` it reads.
+- Provider error bodies are put on one line in eval reports.
 
 ### Changed
 
@@ -25,7 +44,7 @@ Planned as 0.1.0, the first public release.
   - Local servers over stdio: `mcpmedic check -- <command> [args...]`, with `--env KEY=value`.
   - Remote servers over Streamable HTTP, falling back to the older HTTP+SSE transport: `--url`, with `--header`.
   - Saved tool lists: `--file tools.json`, either `{ "tools": [...] }` or a bare array.
-- 17 static checks of tool definitions: names, descriptions, input schemas, parameters, enums, annotations, duplicates, look-alike names and context cost.
+- 20 static checks of tool definitions: names, descriptions, input schemas, parameters, enums, annotations, duplicates, look-alike names, context cost and tool poisoning.
 - A token estimate for each tool and for the whole server.
 - A text report with a fix for each finding, a score out of 100 and the heaviest tools.
 - `--json` output for scripts and CI.
@@ -33,3 +52,6 @@ Planned as 0.1.0, the first public release.
 - `mcpmedic rules` lists every check.
 - A library entry point, so other tools can call the checks directly.
 - Tests, including one against a real stdio server, and CI on Linux and Windows.
+
+[Unreleased]: https://github.com/jmozez/mcpmedic/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jmozez/mcpmedic/releases/tag/v0.1.0
