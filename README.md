@@ -38,6 +38,34 @@ mcpmedic connects to your server, reads its tools, and tells you in plain langua
 
 Levels: **error** will break or confuse hosts, **warning** will likely hurt tool choice or cost, **info** is good practice.
 
+## Screenshots
+
+All screenshots use the test fixtures in this repository. Rebuild them with `npm run build && bash docs/images/make.sh`.
+
+**`mcpmedic check`** on a tool list with many problems, with a fix for each one:
+
+![mcpmedic check output](docs/images/check.png)
+
+**`mcpmedic check --probe`** calls each read-only tool and checks the answers:
+
+![mcpmedic check --probe output](docs/images/probe.png)
+
+**`mcpmedic hosts`** lists each host rule with the page it comes from:
+
+![mcpmedic hosts output](docs/images/hosts.png)
+
+**`mcpmedic eval`** with the offline mock model. One tool has a vague description and fails:
+
+![mcpmedic eval output](docs/images/eval.png)
+
+**`mcpmedic fix`** rewrites that description, and keeps the rewrite because accuracy goes from 75% to 100%:
+
+![mcpmedic fix output](docs/images/fix.png)
+
+**The HTML report** (`--html`), which follows the light or dark setting of your system:
+
+![mcpmedic HTML report in dark mode](docs/images/report.png)
+
 ## Install
 
 You need Node.js 20 or newer. Run it without installing:
