@@ -28,6 +28,9 @@ h1{font-size:22px;margin:0 0 4px}.muted{color:#666}
 .sev{color:#fff;border-radius:4px;padding:1px 6px;font-size:12px}.fix{color:#2e7d32;margin-top:4px}.src{font-size:13px}
 .bar{display:grid;grid-template-columns:200px 1fr 60px;gap:8px;align-items:center;margin:3px 0}.bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar i{display:block;height:10px;background:#90a4ae;border-radius:3px}code{font-size:13px}
+:root{color-scheme:light dark}
+@media (prefers-color-scheme:dark){body{background:#0d1117;color:#e6edf3}.muted{color:#8b949e}.card{border-color:#30363d;background:#161b22}
+td,th{border-color:#21262d}.fix{color:#56d364}a{color:#58a6ff}.bar i{background:#58a6ff}}
 </style></head><body>
 <h1>${esc(name)}</h1>
 <div class="muted">Checked by mcpmedic ${esc(r.version)}${r.server.protocolVersion ? `, protocol ${esc(r.server.protocolVersion)}` : ""}${r.hostPack ? `, host rules ${esc(r.hostPack)}` : ""}</div>
