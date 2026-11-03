@@ -12,6 +12,8 @@ Planned as 0.1.0, the first public release.
 
 ### Added
 
+- The HTML report has a dark mode that follows the system setting.
+- README screenshots, rebuilt with `docs/images/make.sh`.
 - Live probes with `--probe`, `--probe-all` and `--probe-tool`: valid and invalid calls, timeouts, crashes, unhelpful errors, large responses and output schema checks.
 - An open host rule pack in `hosts/hosts.yaml` with a source for every rule, `--host`, `--server-name` and `mcpmedic hosts`.
 - `--html` for a self-contained HTML report and `--badge` for a shields.io endpoint badge.
