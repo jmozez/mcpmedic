@@ -4,6 +4,8 @@ All notable changes to mcpmedic are listed here. The format follows Keep a Chang
 
 ## [Unreleased]
 
+Planned as 0.1.0, the first public release.
+
 ### Changed
 
 - The npm package is now `@jmozez/mcpmedic`. The command is still `mcpmedic`.

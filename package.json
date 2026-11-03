@@ -1,6 +1,6 @@
 {
   "name": "@jmozez/mcpmedic",
-  "version": "0.1.0-dev",
+  "version": "0.1.0",
   "description": "Check your MCP server before your users do. Lints tool definitions and reports problems, token cost and fixes.",
   "type": "module",
   "bin": {
@@ -10,7 +10,9 @@
     "dist",
     "README.md",
     "LICENSE",
-    "hosts"
+    "hosts",
+    "action.yml",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=20"
@@ -20,7 +22,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "dev": "tsx src/cli.ts",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test"
   },
   "keywords": [
     "mcp",
@@ -59,5 +62,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -256,7 +256,7 @@ Each tool starts at 100. Every error costs 10 points and every warning 3, averag
 1. **Week 1 (done):** CLI, connections (stdio, Streamable HTTP, SSE, file), static checks, token cost, text and JSON reports, CI.
 2. **Week 2 (done):** live probes that call each tool with valid generated input, checks that errors are useful and responses fit host size limits, an open rule pack for each host (Claude, ChatGPT, Cursor, VS Code, Codex, Gemini CLI) with a source link per rule, an HTML report, a GitHub Action and a badge.
 3. **Week 3 (done):** tool-choice evals that run on your own model key or a local model, with repeat runs to measure consistency.
-4. **Week 4:** fix mode that rewrites weak descriptions and keeps only changes that improve the eval score, SARIF output, and the first public release.
+4. **Week 4 (done, release pending):** fix mode that rewrites weak descriptions and keeps only changes that improve the eval score, SARIF output, and the first public release.
 
 ## Contributing
 
