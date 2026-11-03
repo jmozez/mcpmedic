@@ -7,3 +7,4 @@ export { estimateTokens, toolTokens } from "./tokens.js";
 export type * from "./types.js";
 export { formatHtml, badgeJson } from "./html.js";
 export { loadHostPack, hostRules, type HostPack, type HostRule } from "./hosts.js";
+export { makeProvider, openAICompatible, anthropic, mock, type Provider, type Choice, type ChooseRequest, type ProviderOptions } from "./providers.js";
