@@ -33,6 +33,9 @@ inputs:
   badge:
     description: Where to write a shields.io endpoint badge JSON file. Empty skips it.
     default: ""
+  sarif:
+    description: Where to write a SARIF file for github/codeql-action/upload-sarif. Empty skips it.
+    default: ""
 
 outputs:
   score:
@@ -62,11 +65,13 @@ runs:
         IN_ARGS: ${{ inputs.args }}
         IN_HTML: ${{ inputs.html }}
         IN_BADGE: ${{ inputs.badge }}
+        IN_SARIF: ${{ inputs.sarif }}
         CLI: ${{ github.action_path }}/dist/cli.js
       run: |
         set -euo pipefail
         opts=(--fail-on never --json --html "$IN_HTML")
         [ -n "$IN_BADGE" ] && opts+=(--badge "$IN_BADGE")
+        [ -n "$IN_SARIF" ] && opts+=(--sarif "$IN_SARIF")
         [ "$IN_PROBE" = "true" ] && opts+=(--probe)
         IFS=',' read -ra hosts <<< "$IN_HOST"
         for h in "${hosts[@]}"; do [ -n "$h" ] && opts+=(--host "$h"); done
