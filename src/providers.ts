@@ -64,7 +64,7 @@ async function post(f: typeof fetch, url: string, headers: Record<string, string
     signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await res.text();
-  if (!res.ok) throw new Error(`${url} answered ${res.status}: ${text.slice(0, 300)}`);
+  if (!res.ok) throw new Error(`${url} answered ${res.status}: ${text.replace(/\s+/g, " ").slice(0, 300)}`);
   return JSON.parse(text);
 }
 
