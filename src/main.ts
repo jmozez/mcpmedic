@@ -44,6 +44,7 @@ Options
   --rule <id>            run only this check (repeatable)
   --header "Name: value" add an HTTP header (repeatable), for example an Authorization header
   --env KEY=value        set an environment variable for a stdio server (repeatable)
+  --inherit-env          pass all of mcpmedic's environment to a stdio server (default: a minimal set, like MCP hosts)
   --timeout <seconds>    give up after this long (default 30)
 
 Eval options
@@ -89,6 +90,7 @@ export async function main(argv: string[]): Promise<number> {
       rule: { type: "string", multiple: true },
       header: { type: "string", multiple: true },
       env: { type: "string", multiple: true },
+      "inherit-env": { type: "boolean" },
       timeout: { type: "string", default: "30" },
       cases: { type: "string" },
       model: { type: "string" },
@@ -146,7 +148,7 @@ export async function main(argv: string[]): Promise<number> {
       if (i < 1) { console.error(`--env "${e}" should look like KEY=value.`); return 2; }
       env[e.slice(0, i)] = e.slice(i + 1);
     }
-    target = { kind: "stdio", command: serverCmd[0], args: serverCmd.slice(1), env };
+    target = { kind: "stdio", command: serverCmd[0], args: serverCmd.slice(1), env, inheritEnv: values["inherit-env"] === true };
   } else { console.error("Tell mcpmedic what to check: -- <command>, --url or --file."); return 2; }
 
   const timeoutMs = Number(values.timeout) * 1000;

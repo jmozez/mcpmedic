@@ -53,3 +53,22 @@ describe("output from servers is neutralised", () => {
     expect(() => JSON.parse(readFileSync(join(dir, "r.sarif"), "utf8"))).not.toThrow();
   }, 20000);
 });
+
+describe("stdio environment", () => {
+  it("does not pass model API keys to the server unless --inherit-env is set", async () => {
+    const { openSession } = await import("../src/connect.js");
+    const { callOnce } = await import("../src/probe.js");
+    process.env.OPENAI_API_KEY = "sk-test-leak-check";
+    try {
+      for (const [inheritEnv, leaks] of [[false, false], [true, true]] as const) {
+        const s = await openSession({ kind: "stdio", command: process.execPath, args: [HOSTILE, "ansi"], env: { EXTRA: "given" }, inheritEnv });
+        const r = await callOnce(s.client, "env", {}, 5000);
+        await s.close();
+        expect(r.text.includes("sk-test-leak-check")).toBe(leaks);
+        expect(r.text).toContain("given");
+      }
+    } finally {
+      delete process.env.OPENAI_API_KEY;
+    }
+  }, 30000);
+});
