@@ -7,6 +7,26 @@ const VAGUE = /^(does|handles|manages|processes|gets|runs|a tool|tool for|utilit
 
 type Schema = Record<string, unknown>;
 
+/** Phrases seen in tool-poisoning attacks, where a description gives the model orders instead of describing the tool. */
+export const SUSPICIOUS: [RegExp, string][] = [
+  [/\b(ignore|disregard|forget)\b.{0,30}\b(previous|prior|above|earlier|all)\b.{0,20}\b(instructions?|rules|prompts?)\b/i, "tells the model to ignore its instructions"],
+  [/<\/?\s*(important|system|instructions?|secret|hidden)\s*>/i, "hides orders in pseudo tags such as <IMPORTANT>"],
+  [/\b(do not|don't|never)\b.{0,20}\b(tell|inform|mention|show|reveal)\b.{0,20}\buser\b/i, "asks the model to keep something from the user"],
+  [/\bbefore (using|calling) (any|every|all|other|another)\b.{0,15}\btools?\b/i, "tries to change how other tools are used"],
+  [/(~|\$HOME)\/\.(ssh|aws|config|gnupg|kube|docker)\b|\bid_(rsa|ed25519)\b|\.aws\/credentials|\bprivate key\b|\.env\b/i, "mentions credential files"],
+];
+const HIDDEN = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]|\udb40[\udc00-\udc7f]/;
+
+/** The description and every parameter description of a tool, with a path for each. */
+function texts(t: ToolDefinition): [string, string][] {
+  const out: [string, string][] = [];
+  if (typeof t.description === "string") out.push(["description", t.description]);
+  for (const [path, child] of walk(t.inputSchema as Schema | undefined)) {
+    if (typeof child?.description === "string") out.push([`inputSchema.${path}`, child.description]);
+  }
+  return out;
+}
+
 function perTool(fn: (tool: ToolDefinition) => Omit<Finding, "rule" | "severity" | "tool">[]) {
   return (rule: Rule) => (snap: ServerSnapshot): Finding[] =>
     snap.tools.flatMap((t) => fn(t).map((f) => ({ rule: rule.id, severity: rule.severity, tool: t.name, ...f })));
@@ -137,6 +157,18 @@ export const rules: Rule[] = [
       fix: "Set annotations.readOnlyHint to true for tools that only read, or destructiveHint to true for tools that delete or overwrite.",
     }] : [];
   }),
+  make("suspicious-instructions", "error", "Descriptions describe the tool and do not give the model hidden orders.", (t) =>
+    texts(t).flatMap(([path, text]) => SUSPICIOUS.filter(([re]) => re.test(text)).map(([, why]) => ({
+      path,
+      message: `The text ${why}. This is how tool-poisoning attacks hijack agents.`,
+      fix: "Describe what the tool does and returns. Never address the model with orders or mention files outside the tool's job.",
+    })))),
+  make("hidden-characters", "error", "Descriptions contain no invisible or control characters.", (t) =>
+    texts(t).filter(([, text]) => HIDDEN.test(text)).map(([path]) => ({
+      path,
+      message: "The text contains invisible or control characters, which can hide instructions from people reviewing it.",
+      fix: "Remove zero-width, bidi override, tag and control characters.",
+    }))),
   make("conflicting-annotations", "error", "Annotations do not contradict each other.", (t) =>
     t.annotations?.readOnlyHint === true && t.annotations?.destructiveHint === true ? [{
       path: "annotations",

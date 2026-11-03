@@ -51,9 +51,9 @@ export function formatText(r: Report, color = false): string {
   lines.push(`${r.summary.tools} tools, about ${r.summary.tokens} tokens of context`, "");
   for (const f of r.findings) {
     const where = p([f.tool, f.path].filter(Boolean).join(" "));
-    lines.push(`  ${mark[f.severity]}  ${f.rule.padEnd(22)} ${where ? where + ": " : ""}${p(f.message)}`);
-    if (f.fix) lines.push(`         ${" ".repeat(22)} fix: ${p(f.fix)}`);
-    if (f.source) lines.push(`         ${" ".repeat(22)} source: ${f.source}`);
+    lines.push(`  ${mark[f.severity]}  ${f.rule.padEnd(24)} ${where ? where + ": " : ""}${p(f.message)}`);
+    if (f.fix) lines.push(`         ${" ".repeat(24)} fix: ${p(f.fix)}`);
+    if (f.source) lines.push(`         ${" ".repeat(24)} source: ${f.source}`);
   }
   if (r.findings.length) lines.push("");
   const top = r.tokensByTool.slice(0, 5).map((t) => `${p(t.name)} (${t.tokens})`).join(", ");
