@@ -52,7 +52,7 @@ jobs:
         run: |
           test -s mcpmedic-report.html
           test -s mcpmedic-badge.json
-          node -e 'const s=require("./mcpmedic.sarif".replace(/^/,process.cwd()+"/"));if(s.version!=="2.1.0")process.exit(1)'
+          node -e 'const s=JSON.parse(require("fs").readFileSync("mcpmedic.sarif","utf8"));if(s.version!=="2.1.0")process.exit(1)'
           echo "Score: ${{ steps.medic.outputs.score }}"
           test -n "${{ steps.medic.outputs.score }}"
       - name: The action fails on errors when asked to
