@@ -1,9 +1,20 @@
 #!/usr/bin/env node
 import { main } from "./main.js";
 
+let done = false;
+// Safety net: if every handle goes quiet before main() settles, Node would exit 0 with no output.
+// That must never pass a CI gate, so treat it as a failure.
+process.on("beforeExit", () => {
+  if (done) return;
+  done = true;
+  console.error("mcpmedic: stopped before finishing (the server stalled). Treating this as a failure.");
+  process.exitCode = 2;
+});
+
 main(process.argv.slice(2)).then(
-  (code) => { process.exitCode = code; },
+  (code) => { done = true; process.exitCode = code; },
   (err: unknown) => {
+    done = true;
     console.error(`mcpmedic: ${err instanceof Error ? err.message : String(err)}`);
     process.exitCode = 2;
   },

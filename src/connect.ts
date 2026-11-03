@@ -53,8 +53,8 @@ export function withTimeout<T>(p: Promise<T>, timeoutMs: number, what = "the ser
   return Promise.race([
     p,
     new Promise<never>((_, reject) => {
+      // Not unref'd: if the only other handle is a stalled server, an unref'd timer lets Node exit with code 0 and no output.
       timer = setTimeout(() => reject(new Error(`No answer from ${what} within ${timeoutMs / 1000} s.`)), timeoutMs);
-      timer.unref();
     }),
   ]).finally(() => clearTimeout(timer));
 }
@@ -76,6 +76,8 @@ export async function openSession(target: Exclude<Target, { kind: "file" }>, tim
       env: { ...(process.env as Record<string, string>), ...target.env },
       stderr: "pipe",
     });
+    // Drain the server's stderr. An unread pipe fills up and blocks a chatty server.
+    transport.stderr?.on("data", () => undefined);
     try {
       await withTimeout(client.connect(transport), timeoutMs);
       return await ready(client);
