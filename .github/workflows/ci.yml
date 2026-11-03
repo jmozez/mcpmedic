@@ -63,3 +63,24 @@ jobs:
           file: test/fixtures/bad.json
       - name: Check it failed
         run: test "${{ steps.strict.outcome }}" = "failure"
+
+  package:
+    name: package (install from tarball)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Pack
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+      - name: Install the tarball somewhere clean and run it
+        run: |
+          mkdir "$RUNNER_TEMP/try" && cd "$RUNNER_TEMP/try"
+          npm init -y >/dev/null
+          npm install "$RUNNER_TEMP"/jmozez-mcpmedic-*.tgz
+          test "$(npx mcpmedic --version)" = "$(node -p 'require("'"$GITHUB_WORKSPACE"'/package.json").version')"
+          npx mcpmedic check --file "$GITHUB_WORKSPACE/test/fixtures/good.json"
+          npx mcpmedic hosts > /dev/null
+          node --input-type=module -e 'import("@jmozez/mcpmedic").then(m => { if (typeof m.runRules !== "function") process.exit(1); })'
