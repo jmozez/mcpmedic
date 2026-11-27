@@ -70,7 +70,7 @@ All screenshots use the test fixtures in this repository. Rebuild them with `npm
 
 ## Install
 
-You need Node.js 20 or newer. Run it without installing:
+You need Node.js 22.12 or newer. Run it without installing:
 
 ```bash
 npx @jmozez/mcpmedic check -- npx -y @modelcontextprotocol/server-everything
