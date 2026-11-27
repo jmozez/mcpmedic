@@ -4,6 +4,10 @@ All notable changes to mcpmedic are listed here. The format follows Keep a Chang
 
 ## [Unreleased]
 
+### Changed
+
+- Node.js 22.12 or later is now required. Node 20 reached end of life in April 2026. CI tests Node 22, 24 and 26.
+
 ## [0.1.0] - 2026-11-03
 
 The first public release.
